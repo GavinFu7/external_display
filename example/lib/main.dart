@@ -1,15 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:external_display/external_display.dart';
 
-
 Route<dynamic> generateRoute(RouteSettings settings) {
-  print(settings.name);
-  /*
+  print("generateRoute: ${settings.name}");
   switch (settings.name) {
-    case '/':
-      return MaterialPageRoute(builder: (_) => const DisplayManagerScreen());
-    case 'presentation':
-      return MaterialPageRoute(builder: (_) => const SecondaryScreen());
+    case 'home':
+      return MaterialPageRoute(builder: (_) => const Home());
     default:
       return MaterialPageRoute(
           builder: (_) => Scaffold(
@@ -17,11 +13,6 @@ Route<dynamic> generateRoute(RouteSettings settings) {
                     child: Text('No route defined for ${settings.name}')),
               ));
   }
-  */
-  return MaterialPageRoute(builder: (_) => Scaffold(
-      body: Center(
-          child: Text('No route defined for ${settings.name}')),
-    ));
 }
 
 void main() {
@@ -29,24 +20,47 @@ void main() {
 }
 
 @pragma('vm:entry-point')
-void secondaryDisplayMain() {
-  print('second main');
-  runApp(const MyApp());
+void externalDisplayMain() {
+  runApp(const MaterialApp(
+    onGenerateRoute: generateRoute
+  ));
 }
 
-class MyApp extends StatefulWidget {
+class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
-  State<MyApp> createState() => _MyAppState();
+  Widget build(BuildContext context) {
+    return const MaterialApp(
+      onGenerateRoute: generateRoute,
+      initialRoute: 'home',
+    );
+  }
 }
 
-class _MyAppState extends State<MyApp> {
+class Home extends StatefulWidget {
+  const Home({super.key});
+
+  @override
+  State<Home> createState() => _HomeState();
+}
+
+class _HomeState extends State<Home> {
   ExternalDisplay externalDisplay = ExternalDisplay();
+  String state = "Unplug";
+  String resolution = "";
 
   onDisplayChange(connecting) {
-    print('onDisplayChange: ${connecting}');
-    externalDisplay.connect();
+    if (connecting) {
+      setState(() {
+        state = "Plug";
+      });
+    } else {
+      setState(() {
+        state = "Unplug";
+        resolution = "";
+      });
+    }
   }
 
   @override
@@ -57,9 +71,44 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
-      onGenerateRoute: generateRoute,
-      initialRoute: 'home',
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('External Display Example'),
+      ),
+      body: Container(
+        color: Colors.white,
+        child: Column(
+          children: [
+            Container(
+              height: 100,
+              alignment: Alignment.center,
+              child: Text("External Monitor is $state")
+            ),
+            Container(
+              height: 100,
+              alignment: Alignment.center,
+              child: TextButton(
+                style: ButtonStyle(
+                  foregroundColor: MaterialStateProperty.all<Color>(Colors.blue),
+                ),
+                onPressed: () async { 
+                  await externalDisplay.connect();
+                  print("connect");
+                  setState(() {
+                    resolution = "width:${externalDisplay.resolution?.width}px, height:${externalDisplay.resolution?.height}px";
+                  });
+                },
+                child: const Text("Connect")
+              ),
+            ),
+            Container(
+              height: 100,
+              alignment: Alignment.center,
+              child: Text(resolution)
+            )
+          ]
+        ),
+      )
     );
   }
 }

@@ -4,6 +4,8 @@ import UIKit
 public class ExternalDisplayPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
     var externalWindow:UIWindow?
     var externalViewController:UIViewController?
+    var didConnectObserver:NSObjectProtocol?
+    var didDisconnectObserver:NSObjectProtocol?
     
     public static func register(with registrar: FlutterPluginRegistrar) {
         let onDisplayChange = FlutterEventChannel(name: "monitorStateListener", binaryMessenger: registrar.messenger())
@@ -39,13 +41,6 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, FlutterStreamHandle
             } else {
                 result(false)
             }
-        case "getCurrentSize":
-            if (UIScreen.screens.count > 1) {
-                let size = UIScreen.screens[1].currentMode?.size
-                result(["height":size?.height, "width":size?.width])
-            } else {
-                result(nil)
-            }
         default:
             result(FlutterMethodNotImplemented)
         }
@@ -57,17 +52,20 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, FlutterStreamHandle
             events(true)
         }
         
-        NotificationCenter.default.addObserver(forName:UIScreen.didConnectNotification, object:nil, queue:nil) {_ in
+        didConnectObserver = NotificationCenter.default.addObserver(forName:UIScreen.didConnectNotification, object:nil, queue:nil) {_ in
             events(true)
         }
         
-        NotificationCenter.default.addObserver(forName:UIScreen.didDisconnectNotification, object:nil, queue: nil) {_ in
+        didDisconnectObserver = NotificationCenter.default.addObserver(forName:UIScreen.didDisconnectNotification, object:nil, queue: nil) {_ in
             events(false)
         }
         return nil
     }
     
     public func onCancel(withArguments arguments: Any?) -> FlutterError? {
+        NotificationCenter.default.removeObserver(didConnectObserver)
+        NotificationCenter.default.removeObserver(didDisconnectObserver)
+        
         return nil
     }
 }

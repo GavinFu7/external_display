@@ -8,19 +8,15 @@ class ExternalDisplay {
   static const MethodChannel _displayController = MethodChannel('displayController');
   static const EventChannel _monitorStateListener = EventChannel('monitorStateListener');
 
-  void connect({String? routeName}) async {
+  Future connect({String? routeName}) async {
     final size = await _displayController.invokeMethod('connect', {"routeName": routeName});
     if (size != false) {
-      _currentResolution = size;
+      _currentResolution = Size(size["width"], size["height"]);
     }
   }
 
   Size? get resolution {
     return _currentResolution;
-  }
-
-  Future<List<String>> getSupportResolutions() async {
-    return await _displayController.invokeMethod('getSupportResolutions');
   }
 
   void addListener(Function (dynamic) listener) {
