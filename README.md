@@ -1,15 +1,146 @@
 # external_display
 
-A new Flutter plugin project.
+Flutter plugin support for connecting to external displays through wired or wireless connections
 
 ## Getting Started
 
-This project is a starting point for a Flutter
-[plug-in package](https://flutter.dev/developing-packages/),
-a specialized package that includes platform-specific implementation code for
-Android and/or iOS.
+Android requires the addition of the `externalDisplayMain` function
 
-For help getting started with Flutter development, view the
-[online documentation](https://flutter.dev/docs), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+The plugin uses `generateRoute` to control the pages displayed on the app and the external display
 
+create `externalDisplay` variables
+```
+ExternalDisplay externalDisplay = ExternalDisplay();
+```
+
+Monitor external monitor plugging and unplugging
+```
+externalDisplay.addListener(onDisplayChange);
+```
+
+Connecting the monitor
+```
+externalDisplay.connect();
+```
+or
+```
+externalDisplay.connect(routeName);
+```
+
+```
+import 'package:flutter/material.dart';
+import 'package:external_display/external_display.dart';
+
+Route<dynamic> generateRoute(RouteSettings settings) {
+  print("generateRoute: ${settings.name}");
+  switch (settings.name) {
+    case 'home':
+      return MaterialPageRoute(builder: (_) => const Home());
+    default:
+      return MaterialPageRoute(
+          builder: (_) => Scaffold(
+                body: Center(
+                    child: Text('No route defined for ${settings.name}')),
+              ));
+  }
+}
+
+void main() {
+  runApp(const MyApp());
+}
+
+@pragma('vm:entry-point')
+void externalDisplayMain() {
+  runApp(const MaterialApp(
+    onGenerateRoute: generateRoute
+  ));
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const MaterialApp(
+      onGenerateRoute: generateRoute,
+      initialRoute: 'home',
+    );
+  }
+}
+
+class Home extends StatefulWidget {
+  const Home({super.key});
+
+  @override
+  State<Home> createState() => _HomeState();
+}
+
+class _HomeState extends State<Home> {
+  ExternalDisplay externalDisplay = ExternalDisplay();
+  String state = "Unplug";
+  String resolution = "";
+
+  onDisplayChange(connecting) {
+    if (connecting) {
+      setState(() {
+        state = "Plug";
+      });
+    } else {
+      setState(() {
+        state = "Unplug";
+        resolution = "";
+      });
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    externalDisplay.addListener(onDisplayChange);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('External Display Example'),
+      ),
+      body: Container(
+        color: Colors.white,
+        child: Column(
+          children: [
+            Container(
+              height: 100,
+              alignment: Alignment.center,
+              child: Text("External Monitor is $state")
+            ),
+            Container(
+              height: 100,
+              alignment: Alignment.center,
+              child: TextButton(
+                style: ButtonStyle(
+                  foregroundColor: MaterialStateProperty.all<Color>(Colors.blue),
+                ),
+                onPressed: () async { 
+                  await externalDisplay.connect();
+                  print("connect");
+                  setState(() {
+                    resolution = "width:${externalDisplay.resolution?.width}px, height:${externalDisplay.resolution?.height}px";
+                  });
+                },
+                child: const Text("Connect")
+              ),
+            ),
+            Container(
+              height: 100,
+              alignment: Alignment.center,
+              child: Text(resolution)
+            )
+          ]
+        ),
+      )
+    );
+  }
+}
+
+```

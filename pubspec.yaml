@@ -1,5 +1,5 @@
 name: external_display
-description: "A new Flutter plugin project."
+description: "Flutter plugin support for connecting to external displays through wired or wireless connections"
 version: 0.0.1
 homepage:
 
