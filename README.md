@@ -27,6 +27,7 @@ or
 externalDisplay.connect(routeName);
 ```
 
+## example
 ```
 import 'package:flutter/material.dart';
 import 'package:external_display/external_display.dart';
