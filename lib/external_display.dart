@@ -22,8 +22,16 @@ class ExternalDisplay {
   void addListener(Function (dynamic) listener) {
     if (_listeners.isEmpty) {
       _streamSubscription = _monitorStateListener.receiveBroadcastStream().listen((event) {
-        for (var listener in _listeners) {
-          listener(event);
+        if (event == false) {
+          _currentResolution = null;
+          for (var listener in _listeners) {
+            listener(false);
+          }
+        } else {
+          _currentResolution = Size(event["width"], event["height"]);
+          for (var listener in _listeners) {
+            listener(true);
+          }
         }
       });
     }

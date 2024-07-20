@@ -1,6 +1,6 @@
 name: external_display
 description: "Flutter plugin support for connecting to external displays through wired or wireless connections"
-version: 0.0.2
+version: 0.0.3
 homepage:
 
 environment:

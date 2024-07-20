@@ -2,26 +2,38 @@
 
 Flutter plugin support for connecting to external displays through wired or wireless connections
 
+https://github.com/GavinFu7/external_display
+
 ## Getting Started
 
-External display entry point `externalDisplayMain`
+###External display entry point `externalDisplayMain`
 ```
 @pragma('vm:entry-point')
 void externalDisplayMain() {
 }
 ```
 
-create `externalDisplay` variables
+###Create `externalDisplay` variables
 ```
 ExternalDisplay externalDisplay = ExternalDisplay();
 ```
 
-Monitor external monitor plugging and unplugging
+###Monitor external monitor plugging and unplugging
 ```
 externalDisplay.addListener(onDisplayChange);
 ```
 
-Connecting the monitor
+###Cancel monitoring of external monitor
+```
+externalDisplay.addListener(onDisplayChange);
+```
+
+###Get the external monitor resolution
+```
+externalDisplay.resolution
+```
+
+###Connecting the monitor
 ```
 externalDisplay.connect();
 ```
