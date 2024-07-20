@@ -27,7 +27,9 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, FlutterStreamHandle
                 var frame = CGRect.zero
                 frame.size = mode!.size
                 if (externalWindow == nil) {
-                    externalViewController = FlutterViewController(project: nil, initialRoute: routeName, nibName: nil, bundle: nil)
+                    let flutterEngine = FlutterEngine()
+                    flutterEngine.run(withEntrypoint: "externalDisplayMain", initialRoute: routeName)
+                    externalViewController = FlutterViewController(engine: flutterEngine, nibName: nil, bundle: nil)
                     externalWindow = UIWindow(frame: frame)
                 } else {
                     externalViewController?.view.setNeedsLayout()
@@ -47,7 +49,6 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, FlutterStreamHandle
     }
     
     public func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
-        debugPrint(UIScreen.screens)
         if (UIScreen.screens.count > 1) {
             events(true)
         }

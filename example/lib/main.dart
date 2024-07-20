@@ -2,17 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:external_display/external_display.dart';
 
 Route<dynamic> generateRoute(RouteSettings settings) {
-  print("generateRoute: ${settings.name}");
-  switch (settings.name) {
-    case 'home':
-      return MaterialPageRoute(builder: (_) => const Home());
-    default:
-      return MaterialPageRoute(
-          builder: (_) => Scaffold(
-                body: Center(
-                    child: Text('No route defined for ${settings.name}')),
-              ));
-  }
+  return MaterialPageRoute(
+    builder: (_) => Scaffold(
+      body: Center(
+        child: Text('The route name is: ${settings.name}')),
+    )
+  );
 }
 
 void main() {
@@ -32,8 +27,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const MaterialApp(
-      onGenerateRoute: generateRoute,
-      initialRoute: 'home',
+      home: Home()
     );
   }
 }
@@ -93,7 +87,6 @@ class _HomeState extends State<Home> {
                 ),
                 onPressed: () async { 
                   await externalDisplay.connect();
-                  print("connect");
                   setState(() {
                     resolution = "width:${externalDisplay.resolution?.width}px, height:${externalDisplay.resolution?.height}px";
                   });

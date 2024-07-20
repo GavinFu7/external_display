@@ -4,9 +4,12 @@ Flutter plugin support for connecting to external displays through wired or wire
 
 ## Getting Started
 
-Android requires the addition of the `externalDisplayMain` function
-
-The plugin uses `generateRoute` to control the pages displayed on the app and the external display
+External display entry point `externalDisplayMain`
+```
+@pragma('vm:entry-point')
+void externalDisplayMain() {
+}
+```
 
 create `externalDisplay` variables
 ```
@@ -24,27 +27,13 @@ externalDisplay.connect();
 ```
 or
 ```
-externalDisplay.connect(routeName);
+externalDisplay.connect(routeName: name);
 ```
 
 ## example
 ```
 import 'package:flutter/material.dart';
 import 'package:external_display/external_display.dart';
-
-Route<dynamic> generateRoute(RouteSettings settings) {
-  print("generateRoute: ${settings.name}");
-  switch (settings.name) {
-    case 'home':
-      return MaterialPageRoute(builder: (_) => const Home());
-    default:
-      return MaterialPageRoute(
-          builder: (_) => Scaffold(
-                body: Center(
-                    child: Text('No route defined for ${settings.name}')),
-              ));
-  }
-}
 
 void main() {
   runApp(const MyApp());
@@ -53,7 +42,7 @@ void main() {
 @pragma('vm:entry-point')
 void externalDisplayMain() {
   runApp(const MaterialApp(
-    onGenerateRoute: generateRoute
+    home: externalView(),
   ));
 }
 
@@ -63,8 +52,19 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const MaterialApp(
-      onGenerateRoute: generateRoute,
-      initialRoute: 'home',
+      home: Home()
+    );
+  }
+}
+
+class externalView extends StatelessWidget {
+  const externalView({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(
+        child: Text('This is external view.')),
     );
   }
 }
@@ -124,7 +124,6 @@ class _HomeState extends State<Home> {
                 ),
                 onPressed: () async { 
                   await externalDisplay.connect();
-                  print("connect");
                   setState(() {
                     resolution = "width:${externalDisplay.resolution?.width}px, height:${externalDisplay.resolution?.height}px";
                   });
@@ -143,5 +142,4 @@ class _HomeState extends State<Home> {
     );
   }
 }
-
 ```
