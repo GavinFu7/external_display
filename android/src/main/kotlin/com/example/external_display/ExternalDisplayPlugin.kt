@@ -8,6 +8,7 @@ import android.os.Handler
 import android.os.Looper
 import android.widget.FrameLayout
 import android.view.ViewGroup
+import android.view.Display
 import io.flutter.FlutterInjector
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.FlutterEngineCache
@@ -33,6 +34,7 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
   ///
   /// This local reference serves to register the plugin with the Flutter Engine and unregister it
   /// when the Flutter Engine is detached from the Activity
+  public var externalViewEvents : EventChannel.EventSink? = null
   private lateinit var methodChannel : MethodChannel
   private lateinit var eventChannel : EventChannel
   private lateinit var context: Context
@@ -44,9 +46,9 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
         val displayId = displayManager.displays.last().displayId
         val display = displayManager.getDisplay(displayId)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-          result.success(mapOf("width" to display.mode.physicalWidth.toDouble(), "height" to display.mode.physicalHeight.toDouble()))
+          events.success(mapOf("width" to display.mode.physicalWidth.toDouble(), "height" to display.mode.physicalHeight.toDouble()))
         } else {
-          result.success(mapOf("width" to display.width.toDouble(), "height" to display.height.toDouble()))
+          events.success(mapOf("width" to display.width.toDouble(), "height" to display.height.toDouble()))
         }
       }
     }
@@ -104,6 +106,16 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
             flutterEngine = FlutterEngineCache.getInstance().get(routeName) as FlutterEngine
           }
 
+          val resolution:Map<String, Double>
+          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            resolution = mapOf("width" to display.mode.physicalWidth.toDouble(), "height" to display.mode.physicalHeight.toDouble())
+          } else {
+            resolution = mapOf("width" to display.width.toDouble(), "height" to display.height.toDouble())
+          }
+
+          val receiveParameters = EventChannel(flutterEngine.dartExecutor.binaryMessenger, "receiveParametersListener")
+          receiveParameters.setStreamHandler(ExternalViewHandler(this, resolution))
+
           val flutterView = FlutterView(context)
           flutterView.attachToFlutterEngine(flutterEngine)
 
@@ -117,15 +129,13 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
           presentation.setContentView(view)
           presentation.show()
 
-          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            result.success(mapOf("width" to display.mode.physicalWidth.toDouble(), "height" to display.mode.physicalHeight.toDouble()))
-          } else {
-            result.success(mapOf("width" to display.width.toDouble(), "height" to display.height.toDouble()))
-          }
+          result.success(resolution)
           return
         }
         result.success(false)
       }
+    } else if (call.method == "transferParameters") {
+      externalViewEvents?.success(call.arguments)
     } else {
       result.notImplemented()
     }
@@ -138,9 +148,9 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
       val displayId = displayManager.displays.last().displayId
       val display = displayManager.getDisplay(displayId)
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-        result.success(mapOf("width" to display.mode.physicalWidth.toDouble(), "height" to display.mode.physicalHeight.toDouble()))
+        events.success(mapOf("width" to display.mode.physicalWidth.toDouble(), "height" to display.mode.physicalHeight.toDouble()))
       } else {
-        result.success(mapOf("width" to display.width.toDouble(), "height" to display.height.toDouble()))
+        events.success(mapOf("width" to display.width.toDouble(), "height" to display.height.toDouble()))
       }
     }
     displayManager.registerDisplayListener(displayListener, Handler(Looper.getMainLooper()))
@@ -153,5 +163,20 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
 
   override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
     methodChannel.setMethodCallHandler(null)
+  }
+}
+
+class ExternalViewHandler constructor(plugin: ExternalDisplayPlugin, size: Map<String, Double>) : StreamHandler {
+  val externalDisplayPlugin = plugin
+  val resolution = size
+  override fun onListen(arguments: Any?, eventSink: EventChannel.EventSink)
+  {
+    eventSink.success(mapOf("action" to "Resolution", "value" to resolution))
+    externalDisplayPlugin.externalViewEvents = eventSink
+  }
+
+  override fun onCancel(arguments: Any?)
+  {
+    externalDisplayPlugin.externalViewEvents = null
   }
 }

@@ -19,6 +19,10 @@ class ExternalDisplay {
     return _currentResolution;
   }
 
+  Future<bool> transferParameters({required String action, required dynamic value}) async {
+    return await _displayController.invokeMethod('transferParameters', {"action" : action, "value" : value});
+  }
+
   void addListener(Function (dynamic) listener) {
     if (_listeners.isEmpty) {
       _streamSubscription = _monitorStateListener.receiveBroadcastStream().listen((event) {
@@ -45,9 +49,5 @@ class ExternalDisplay {
     }
 
     return result;
-  }
-
-  void show() {
-
   }
 }

@@ -35,11 +35,35 @@ externalDisplay.resolution
 
 ###Connecting the monitor
 ```
-externalDisplay.connect();
+await externalDisplay.connect();
 ```
 or
 ```
-externalDisplay.connect(routeName: name);
+await externalDisplay.connect(routeName: name);
+```
+
+##Transfer parameters to external display
+```
+await externalDisplay.transferParameters(action: actionName, value: parameters);
+```
+
+##external view receive parameters
+###include `receive_parameters.dart`
+```
+import 'package:external_display/receive_parameters.dart';
+```
+
+###Create `receiveParameters` variables
+```
+ReceiveParameters receiveParameters = ReceiveParameters();
+```
+
+###Add listener
+```
+receiveParameters.addListener(({required action, value}) {
+  print(action);
+  print(value);
+});
 ```
 
 ## example

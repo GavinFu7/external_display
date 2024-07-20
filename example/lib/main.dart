@@ -1,7 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:external_display/external_display.dart';
+import 'package:external_display/receive_parameters.dart';
 
 Route<dynamic> generateRoute(RouteSettings settings) {
+  ReceiveParameters receiveParameters = ReceiveParameters();
+  receiveParameters.addListener(({required action, value}) {
+    print(action);
+    print(value);
+  });
+
   return MaterialPageRoute(
     builder: (_) => Scaffold(
       body: Center(
@@ -92,6 +99,19 @@ class _HomeState extends State<Home> {
                   });
                 },
                 child: const Text("Connect")
+              ),
+            ),
+            Container(
+              height: 100,
+              alignment: Alignment.center,
+              child: TextButton(
+                style: ButtonStyle(
+                  foregroundColor: MaterialStateProperty.all<Color>(Colors.blue),
+                ),
+                onPressed: () async { 
+                  await externalDisplay.transferParameters(action: "testing", value: {"a" : "apple", "b" : "boy"});
+                },
+                child: const Text("Transfer parameters")
               ),
             ),
             Container(

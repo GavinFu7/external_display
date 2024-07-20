@@ -1,15 +1,14 @@
 import Flutter
 import UIKit
 
-public class ExternalDisplayPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
+public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
     var externalWindow:UIWindow?
-    var externalViewController:UIViewController?
-    var didConnectObserver:NSObjectProtocol?
-    var didDisconnectObserver:NSObjectProtocol?
+    var externalViewController:FlutterViewController!;
+    public var externalViewEvents:FlutterEventSink?
     
     public static func register(with registrar: FlutterPluginRegistrar) {
         let onDisplayChange = FlutterEventChannel(name: "monitorStateListener", binaryMessenger: registrar.messenger())
-        onDisplayChange.setStreamHandler(ExternalDisplayPlugin())
+        onDisplayChange.setStreamHandler(MainViewHandler())
         
         let connect = FlutterMethodChannel(name: "displayController", binaryMessenger: registrar.messenger())
         registrar.addMethodCallDelegate(ExternalDisplayPlugin(), channel: connect)
@@ -30,11 +29,15 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, FlutterStreamHandle
                     let flutterEngine = FlutterEngine()
                     flutterEngine.run(withEntrypoint: "externalDisplayMain", initialRoute: routeName)
                     externalViewController = FlutterViewController(engine: flutterEngine, nibName: nil, bundle: nil)
-                    externalViewController?.view.frame = frame
+                    
+                    let receiveParameters = FlutterEventChannel(name: "receiveParametersListener", binaryMessenger: externalViewController.binaryMessenger)
+                    receiveParameters.setStreamHandler(ExternalViewHandler(plugin: self))
+                    
+                    externalViewController.view.frame = frame
                     externalWindow = UIWindow(frame: frame)
                 } else {
-                    externalViewController?.view.frame = frame
-                    externalViewController?.view.setNeedsLayout()
+                    externalViewController.view.frame = frame
+                    externalViewController.view.setNeedsLayout()
                     externalWindow?.frame = frame
                 }
                 externalWindow?.rootViewController = externalViewController
@@ -45,10 +48,22 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, FlutterStreamHandle
             } else {
                 result(false)
             }
+        case "transferParameters":
+            if (externalViewEvents != nil) {
+                externalViewEvents?(call.arguments)
+                result(true)
+            } else {
+                result(false)
+            }
         default:
             result(FlutterMethodNotImplemented)
         }
     }
+}
+
+public class MainViewHandler: NSObject, FlutterStreamHandler {
+    var didConnectObserver:NSObjectProtocol?
+    var didDisconnectObserver:NSObjectProtocol?
     
     public func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
         if (UIScreen.screens.count > 1) {
@@ -79,3 +94,27 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, FlutterStreamHandle
     }
 }
 
+public class ExternalViewHandler: NSObject, FlutterStreamHandler {
+    var externalDisplayPlugin : ExternalDisplayPlugin
+    
+    init(plugin : ExternalDisplayPlugin) {
+        externalDisplayPlugin = plugin
+    }
+    
+    public func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
+        externalDisplayPlugin.externalViewEvents = events
+
+        if (UIScreen.screens.count > 1) {
+            let externalScreen = UIScreen.screens[1]
+            let mode = externalScreen.availableModes.last
+            events(["action": "Resolution", "value":["height":mode!.size.height, "width":mode!.size.width]])
+        }
+        
+        return nil
+    }
+    
+    public func onCancel(withArguments arguments: Any?) -> FlutterError? {
+        externalDisplayPlugin.externalViewEvents = nil
+        return nil
+    }
+}
