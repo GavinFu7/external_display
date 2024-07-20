@@ -6,34 +6,34 @@ https://github.com/GavinFu7/external_display
 
 ## Getting Started
 
-###External display entry point `externalDisplayMain`
+### External display entry point `externalDisplayMain`
 ```
 @pragma('vm:entry-point')
 void externalDisplayMain() {
 }
 ```
 
-###Create `externalDisplay` variables
+### Create `externalDisplay` variables
 ```
 ExternalDisplay externalDisplay = ExternalDisplay();
 ```
 
-###Monitor external monitor plugging and unplugging
+### Monitor external monitor plugging and unplugging
 ```
 externalDisplay.addListener(onDisplayChange);
 ```
 
-###Cancel monitoring of external monitor
+### Cancel monitoring of external monitor
 ```
 externalDisplay.addListener(onDisplayChange);
 ```
 
-###Get the external monitor resolution
+### Get the external monitor resolution
 ```
 externalDisplay.resolution
 ```
 
-###Connecting the monitor
+### Connecting the monitor
 ```
 await externalDisplay.connect();
 ```
@@ -42,23 +42,24 @@ or
 await externalDisplay.connect(routeName: name);
 ```
 
-##Transfer parameters to external display
+## Transfer parameters to external display
 ```
 await externalDisplay.transferParameters(action: actionName, value: parameters);
 ```
 
-##external view receive parameters
-###include `receive_parameters.dart`
+## external view receive parameters
+
+### include `receive_parameters.dart`
 ```
 import 'package:external_display/receive_parameters.dart';
 ```
 
-###Create `receiveParameters` variables
+### Create `receiveParameters` variables
 ```
 ReceiveParameters receiveParameters = ReceiveParameters();
 ```
 
-###Add listener
+### Add listener
 ```
 receiveParameters.addListener(({required action, value}) {
   print(action);
