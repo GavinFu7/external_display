@@ -41,7 +41,7 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, FlutterStreamHandle
                 externalWindow?.screen = externalScreen
                 externalWindow?.makeKeyAndVisible()
                 
-                result(["height":frame.size.height, "width":frame.size.width])
+                result(["height":mode!.size.height, "width":mode!.size.width])
             } else {
                 result(false)
             }
