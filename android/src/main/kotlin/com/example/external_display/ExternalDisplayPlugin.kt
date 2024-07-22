@@ -42,15 +42,7 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
   private lateinit var events : EventChannel.EventSink
   private val displayListener = object : DisplayManager.DisplayListener {
     override fun onDisplayAdded(displayId: Int) {
-      if (displayManager.displays.size > 1) {
-        val displayId = displayManager.displays.last().displayId
-        val display = displayManager.getDisplay(displayId)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-          events.success(mapOf("width" to display.mode.physicalWidth.toDouble(), "height" to display.mode.physicalHeight.toDouble()))
-        } else {
-          events.success(mapOf("width" to display.width.toDouble(), "height" to display.height.toDouble()))
-        }
-      }
+      events.success(true)
     }
     override fun onDisplayRemoved(displayId: Int) {
       events.success(false)
@@ -145,13 +137,7 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
   {
     events = eventSink
     if (displayManager.displays.size > 1) {
-      val displayId = displayManager.displays.last().displayId
-      val display = displayManager.getDisplay(displayId)
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-        events.success(mapOf("width" to display.mode.physicalWidth.toDouble(), "height" to display.mode.physicalHeight.toDouble()))
-      } else {
-        events.success(mapOf("width" to display.width.toDouble(), "height" to display.height.toDouble()))
-      }
+      events.success(true)
     }
     displayManager.registerDisplayListener(displayListener, Handler(Looper.getMainLooper()))
   }

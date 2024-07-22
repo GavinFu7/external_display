@@ -3,6 +3,7 @@ import UIKit
 
 public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
     var externalWindow:UIWindow?
+    var router:String = "";
     var externalViewController:FlutterViewController!;
     public var externalViewEvents:FlutterEventSink?
     
@@ -25,7 +26,7 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
                 externalScreen.currentMode = mode;
                 var frame = CGRect.zero
                 frame.size = mode!.size
-                if (externalWindow == nil) {
+                if (externalWindow == nil || routeName != router) {
                     let flutterEngine = FlutterEngine()
                     flutterEngine.run(withEntrypoint: "externalDisplayMain", initialRoute: routeName)
                     externalViewController = FlutterViewController(engine: flutterEngine, nibName: nil, bundle: nil)
@@ -37,8 +38,8 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
                     externalWindow = UIWindow(frame: frame)
                 } else {
                     externalViewController.view.frame = frame
-                    externalViewController.view.setNeedsLayout()
                     externalWindow?.frame = frame
+                    externalViewController.view.setNeedsLayout()
                 }
                 externalWindow?.rootViewController = externalViewController
                 externalWindow?.screen = externalScreen
@@ -67,17 +68,11 @@ public class MainViewHandler: NSObject, FlutterStreamHandler {
     
     public func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
         if (UIScreen.screens.count > 1) {
-            let externalScreen = UIScreen.screens[1]
-            let mode = externalScreen.availableModes.last
-            events(["height":mode!.size.height, "width":mode!.size.width])
+            events(true)
         }
         
         didConnectObserver = NotificationCenter.default.addObserver(forName:UIScreen.didConnectNotification, object:nil, queue:nil) {_ in
-            if (UIScreen.screens.count > 1) {
-                let externalScreen = UIScreen.screens[1]
-                let mode = externalScreen.availableModes.last
-                events(["height":mode!.size.height, "width":mode!.size.width])
-            }
+            events(true)
         }
         
         didDisconnectObserver = NotificationCenter.default.addObserver(forName:UIScreen.didDisconnectNotification, object:nil, queue: nil) {_ in

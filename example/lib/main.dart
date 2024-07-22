@@ -109,6 +109,22 @@ class _HomeState extends State<Home> {
                   foregroundColor: MaterialStateProperty.all<Color>(Colors.blue),
                 ),
                 onPressed: () async { 
+                  await externalDisplay.connect(routeName: "Testing");
+                  setState(() {
+                    resolution = "width:${externalDisplay.resolution?.width}px, height:${externalDisplay.resolution?.height}px";
+                  });
+                },
+                child: const Text("Connect")
+              ),
+            ),
+            Container(
+              height: 100,
+              alignment: Alignment.center,
+              child: TextButton(
+                style: ButtonStyle(
+                  foregroundColor: MaterialStateProperty.all<Color>(Colors.blue),
+                ),
+                onPressed: () async { 
                   await externalDisplay.transferParameters(action: "testing", value: {"a" : "apple", "b" : "boy"});
                 },
                 child: const Text("Transfer parameters")
