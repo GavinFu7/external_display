@@ -2,8 +2,6 @@
 
 Flutter plugin support for connecting to external displays through wired or wireless connections
 
-https://github.com/GavinFu7/external_display
-
 ## Getting Started
 
 ### External display entry point `externalDisplayMain`
@@ -65,6 +63,11 @@ receiveParameters.addListener(({required action, value}) {
   print(action);
   print(value);
 });
+```
+
+Remove listener
+```
+receiveParameters.removeListener(receive);
 ```
 
 ## example
