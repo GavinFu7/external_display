@@ -25,7 +25,7 @@ externalDisplay.addListener(onDisplayChange);
 
 ### Cancel monitoring of external monitor
 ```
-externalDisplay.addListener(onDisplayChange);
+externalDisplay.removeListener(onDisplayChange);
 ```
 
 ### Get the external monitor resolution
