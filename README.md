@@ -26,6 +26,11 @@ externalDisplay.addListener(onDisplayChange);
 externalDisplay.removeListener(onDisplayChange);
 ```
 
+### Get the plugging status
+```
+externalDisplay.isPlugging
+```
+
 ### Get the external monitor resolution
 ```
 externalDisplay.resolution

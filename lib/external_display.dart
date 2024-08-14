@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 class ExternalDisplay {
   final List<Function(dynamic)> _listeners = [];
   StreamSubscription? _streamSubscription;
+  bool _isPlugging = false;
 
   // external monitor resolution
   Size? _currentResolution;
@@ -28,6 +29,11 @@ class ExternalDisplay {
     return _currentResolution;
   }
 
+  // plugging status
+  bool get isPlugging {
+    return _isPlugging;
+  }
+
   // Send parameters to external display page
   Future<bool> transferParameters(
       {required String action, required dynamic value}) async {
@@ -40,7 +46,10 @@ class ExternalDisplay {
     if (_listeners.isEmpty) {
       _streamSubscription =
           _monitorStateListener.receiveBroadcastStream().listen((event) {
-        listener(event);
+        _isPlugging = event;
+        for (var listener in _listeners) {
+          listener(event);
+        }
       });
     }
     _listeners.add(listener);
