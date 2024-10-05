@@ -51,10 +51,12 @@ class _HomeState extends State<Home> {
   String state = "Unplug";
   String resolution = "";
 
-  onDisplayChange(connecting) {
+  onDisplayChange(connecting) async{
     if (connecting) {
+      state = "Plug";
+      await externalDisplay.connect();
+      await externalDisplay.transferParameters(action: "testing", value: {"a" : "apple", "b" : "boy"});
       setState(() {
-        state = "Plug";
       });
     } else {
       setState(() {

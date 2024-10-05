@@ -3,8 +3,9 @@ import UIKit
 
 public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
     var externalWindow:UIWindow?
-    var router:String = "";
-    var externalViewController:FlutterViewController!;
+    var router:String = ""
+    var connectReturn:(() -> Void)?
+    var externalViewController:FlutterViewController!
     public var externalViewEvents:FlutterEventSink?
     
     public static func register(with registrar: FlutterPluginRegistrar) {
@@ -45,7 +46,11 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
                 externalWindow?.screen = externalScreen
                 externalWindow?.makeKeyAndVisible()
                 
-                result(["height":mode!.size.height, "width":mode!.size.width])
+                func returnResolution() -> Void {
+                    result(["height":mode!.size.height, "width":mode!.size.width])
+                }
+                
+                connectReturn = returnResolution
             } else {
                 result(false)
             }
@@ -98,6 +103,7 @@ public class ExternalViewHandler: NSObject, FlutterStreamHandler {
     
     public func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
         externalDisplayPlugin.externalViewEvents = events
+        externalDisplayPlugin.connectReturn?()
         return nil
     }
     
