@@ -106,7 +106,7 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
           }
 
           val receiveParameters = EventChannel(flutterEngine.dartExecutor.binaryMessenger, "receiveParametersListener")
-          receiveParameters.setStreamHandler(ExternalViewHandler(this, resolution))
+          receiveParameters.setStreamHandler(ExternalViewHandler(this))
 
           val flutterView = FlutterView(context)
           flutterView.attachToFlutterEngine(flutterEngine)
@@ -152,12 +152,10 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
   }
 }
 
-class ExternalViewHandler constructor(plugin: ExternalDisplayPlugin, size: Map<String, Double>) : StreamHandler {
+class ExternalViewHandler constructor(plugin: ExternalDisplayPlugin) : StreamHandler {
   val externalDisplayPlugin = plugin
-  val resolution = size
   override fun onListen(arguments: Any?, eventSink: EventChannel.EventSink)
   {
-    eventSink.success(mapOf("action" to "Resolution", "value" to resolution))
     externalDisplayPlugin.externalViewEvents = eventSink
   }
 

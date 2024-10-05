@@ -98,13 +98,6 @@ public class ExternalViewHandler: NSObject, FlutterStreamHandler {
     
     public func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
         externalDisplayPlugin.externalViewEvents = events
-
-        if (UIScreen.screens.count > 1) {
-            let externalScreen = UIScreen.screens[1]
-            let mode = externalScreen.availableModes.last
-            events(["action": "Resolution", "value":["height":mode!.size.height, "width":mode!.size.width]])
-        }
-        
         return nil
     }
     

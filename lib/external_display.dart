@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 
 /// Provides the 'ExternalDisplay' method.
 class ExternalDisplay {
-  final List<Function(dynamic)> _listeners = [];
+  final Set<Function(dynamic)> _listeners = {};
   bool _isPlugging = false;
   Size? _currentResolution;
 
@@ -50,7 +50,7 @@ class ExternalDisplay {
 
   /// Send parameters to external display page
   Future<bool> transferParameters(
-      {required String action, required dynamic value}) async {
+      {required String action, dynamic value}) async {
     return await _displayController
         .invokeMethod('transferParameters', {"action": action, "value": value});
   }

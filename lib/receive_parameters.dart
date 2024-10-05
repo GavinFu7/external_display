@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 
 /// Provides the 'ReceiveParameters' method.
 class ReceiveParameters {
-  final List<Function({required String action, dynamic value})> _listeners = [];
+  final Set<Function({required String action, dynamic value})> _listeners = {};
   static const EventChannel _receiveParametersListener =
       EventChannel('receiveParametersListener');
 
