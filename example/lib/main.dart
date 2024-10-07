@@ -85,7 +85,7 @@ class _HomeState extends State<Home> {
                   ),
                   onPressed: () async {
                     await externalDisplay.connect();
-                    externalDisplay.waitingTransferParameters(onReady: () {
+                    externalDisplay.waitingTransferParametersReady(onReady: () {
                       print("First transfer parameters ready!");
                       externalDisplay.transferParameters(
                           action: "testing", value: {"c": "cat", "d": "dog"});

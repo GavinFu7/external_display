@@ -39,7 +39,7 @@ class ExternalDisplay {
   }
 
   /// if external monitor receive parameters ready run...
-  Future waitingTransferParameters(
+  Future waitingTransferParametersReady(
       {required Function() onReady, Function()? onError}) async {
     final ready =
         await _displayController.invokeMethod('waitingTransferParametersReady');

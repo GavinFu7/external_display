@@ -53,12 +53,12 @@ await externalDisplay.transferParameters(action: actionName, value: parameters);
 ### waiting external monitor receive parameters ready
 ```
 externalDisplay.connect();
-externalDisplay.waitingTransferParameters(
+externalDisplay.waitingTransferParametersReady(
   onReady: () {
     print("Transfer parameters ready, transfer data!");
     externalDisplay.transferParameters(action: "action", value: "data");
   },
-  onError: () {
+  onError: () { // waiting timeout
     print("Transfer parameters fail!");
   }
 );
