@@ -1,6 +1,7 @@
 ## 0.1.3
 
 "waitingTransferParameters" Change To "waitingTransferParametersReady"
+
 External Display support FlutterPlugin
 
 ## 0.1.2
