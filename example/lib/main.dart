@@ -8,7 +8,6 @@ Route<dynamic> generateRoute(RouteSettings settings) {
     print(action);
     print(value);
   });
-
   return MaterialPageRoute(
     builder: (_) => Scaffold(
       body: Center(
@@ -54,8 +53,6 @@ class _HomeState extends State<Home> {
   onDisplayChange(connecting) async{
     if (connecting) {
       state = "Plug";
-      await externalDisplay.connect();
-      await externalDisplay.transferParameters(action: "testing", value: {"a" : "apple", "b" : "boy"});
       setState(() {
       });
     } else {
@@ -96,6 +93,15 @@ class _HomeState extends State<Home> {
                 ),
                 onPressed: () async { 
                   await externalDisplay.connect();
+                  externalDisplay.waitingTransferParameters(
+                    onReady: () {
+                      print("First transfer parameters ready!");
+                      externalDisplay.transferParameters(action: "testing", value: {"c" : "cat", "d" : "dog"});
+                    },
+                    onError: () {
+                      print("First transfer parameters fail!");
+                    }
+                  );
                   setState(() {
                     resolution = "width:${externalDisplay.resolution?.width}px, height:${externalDisplay.resolution?.height}px";
                   });

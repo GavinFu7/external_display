@@ -45,14 +45,27 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
                 externalWindow?.rootViewController = externalViewController
                 externalWindow?.screen = externalScreen
                 externalWindow?.makeKeyAndVisible()
-                
-                func returnResolution() -> Void {
-                    result(["height":mode!.size.height, "width":mode!.size.width])
-                }
-                
-                connectReturn = returnResolution
+
+                result(["height":mode!.size.height, "width":mode!.size.width])
             } else {
                 result(false)
+            }
+        case "waitingTransferParametersReady":
+            func returnResolution() -> Void {
+                result(true)
+                connectReturn = nil
+            }
+            connectReturn = returnResolution
+
+            if (externalViewEvents != nil) {
+                connectReturn?()
+            } else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 7.0) {
+                    if (self.connectReturn != nil) {
+                        result(false)
+                        self.connectReturn = nil
+                    }
+                }
             }
         case "transferParameters":
             if (externalViewEvents != nil) {

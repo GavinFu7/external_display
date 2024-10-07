@@ -35,6 +35,7 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
   /// This local reference serves to register the plugin with the Flutter Engine and unregister it
   /// when the Flutter Engine is detached from the Activity
   public var externalViewEvents : EventChannel.EventSink? = null
+  public var connectReturn : (() -> Unit)? = null
   private lateinit var methodChannel : MethodChannel
   private lateinit var eventChannel : EventChannel
   private lateinit var context: Context
@@ -55,7 +56,6 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
     displayManager = flutterPluginBinding.applicationContext.getSystemService(Context.DISPLAY_SERVICE) as
               DisplayManager
 
-
     eventChannel = EventChannel(flutterPluginBinding.binaryMessenger, "monitorStateListener")
     eventChannel.setStreamHandler(this)
 
@@ -72,64 +72,89 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
   override fun onDetachedFromActivityForConfigChanges() {}
 
   override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
-    if (call.method == "connect") {
-      if (displayManager.displays.size > 1 && context != null) {
-        val displayId = displayManager.displays.last().displayId;
-        val args = JSONObject("${call.arguments}")
-        var routeName: String = args.getString("routeName")
-        if (routeName == "null") {
-          routeName = "externalView"
-        }
-        val display = displayManager.getDisplay(displayId)
-        if (display != null) {
-          val flutterEngine : FlutterEngine
-          if (FlutterEngineCache.getInstance().get(routeName) == null) {
-            flutterEngine = FlutterEngine(context!!)
-            flutterEngine.navigationChannel.setInitialRoute(routeName)
-
-            FlutterInjector.instance().flutterLoader().startInitialization(context!!)
-            val appBundlePath = FlutterInjector.instance().flutterLoader().findAppBundlePath()
-            val entrypoint = DartExecutor.DartEntrypoint(appBundlePath, "externalDisplayMain")
-            flutterEngine.dartExecutor.executeDartEntrypoint(entrypoint)
-            flutterEngine.lifecycleChannel.appIsResumed()
-
-            FlutterEngineCache.getInstance().put(routeName, flutterEngine)
-          } else {
-            flutterEngine = FlutterEngineCache.getInstance().get(routeName) as FlutterEngine
+    when (call.method) {
+      "connect" -> {
+        if (displayManager.displays.size > 1 && context != null) {
+          val displayId = displayManager.displays.last().displayId;
+          val args = JSONObject("${call.arguments}")
+          var routeName: String = args.getString("routeName")
+          if (routeName == "null") {
+            routeName = "externalView"
           }
+          val display = displayManager.getDisplay(displayId)
+          if (display != null) {
+            val flutterEngine : FlutterEngine
+            if (FlutterEngineCache.getInstance().get(routeName) == null) {
+              flutterEngine = FlutterEngine(context!!)
+              flutterEngine.navigationChannel.setInitialRoute(routeName)
 
-          val resolution:Map<String, Double>
-          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            resolution = mapOf("width" to display.mode.physicalWidth.toDouble(), "height" to display.mode.physicalHeight.toDouble())
-          } else {
-            resolution = mapOf("width" to display.width.toDouble(), "height" to display.height.toDouble())
+              FlutterInjector.instance().flutterLoader().startInitialization(context!!)
+              val appBundlePath = FlutterInjector.instance().flutterLoader().findAppBundlePath()
+              val entrypoint = DartExecutor.DartEntrypoint(appBundlePath, "externalDisplayMain")
+              flutterEngine.dartExecutor.executeDartEntrypoint(entrypoint)
+              flutterEngine.lifecycleChannel.appIsResumed()
+
+              FlutterEngineCache.getInstance().put(routeName, flutterEngine)
+            } else {
+              flutterEngine = FlutterEngineCache.getInstance().get(routeName) as FlutterEngine
+            }
+
+            val resolution:Map<String, Double>
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+              resolution = mapOf("width" to display.mode.physicalWidth.toDouble(), "height" to display.mode.physicalHeight.toDouble())
+            } else {
+              resolution = mapOf("width" to display.width.toDouble(), "height" to display.height.toDouble())
+            }
+
+            val receiveParameters = EventChannel(flutterEngine.dartExecutor.binaryMessenger, "receiveParametersListener")
+            receiveParameters.setStreamHandler(ExternalViewHandler(this))
+
+            val flutterView = FlutterView(context)
+            flutterView.attachToFlutterEngine(flutterEngine)
+
+            val view = FrameLayout(context)
+            view.addView(flutterView, FrameLayout.LayoutParams(
+              ViewGroup.LayoutParams.MATCH_PARENT,
+              ViewGroup.LayoutParams.MATCH_PARENT
+            ))
+
+            val presentation = Presentation(context, display)
+            presentation.setContentView(view)
+            presentation.show()
+
+            result.success(resolution)
+            return
           }
-
-          val receiveParameters = EventChannel(flutterEngine.dartExecutor.binaryMessenger, "receiveParametersListener")
-          receiveParameters.setStreamHandler(ExternalViewHandler(this))
-
-          val flutterView = FlutterView(context)
-          flutterView.attachToFlutterEngine(flutterEngine)
-
-          val view = FrameLayout(context)
-          view.addView(flutterView, FrameLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.MATCH_PARENT
-          ))
-
-          val presentation = Presentation(context, display)
-          presentation.setContentView(view)
-          presentation.show()
-
-          result.success(resolution)
-          return
+          result.success(false)
         }
-        result.success(false)
       }
-    } else if (call.method == "transferParameters") {
-      externalViewEvents?.success(call.arguments)
-    } else {
-      result.notImplemented()
+      "waitingTransferParametersReady" -> {
+        fun returnResolution() {
+          result.success(true)
+          connectReturn = null
+        }
+        connectReturn = ::returnResolution
+
+        if (externalViewEvents != null) {
+          connectReturn?.invoke()
+        } else {
+          Handler().postDelayed({
+            result.success(false)
+            connectReturn = null
+          }, 7000)
+        }
+      }
+      "transferParameters" -> {
+        if (externalViewEvents != null) {
+          externalViewEvents?.success(call.arguments)
+          result.success(true)
+        } else {
+          result.success(false)
+        }
+      }
+      else -> {
+        result.notImplemented()
+      }
     }
   }
 
@@ -157,6 +182,7 @@ class ExternalViewHandler constructor(plugin: ExternalDisplayPlugin) : StreamHan
   override fun onListen(arguments: Any?, eventSink: EventChannel.EventSink)
   {
     externalDisplayPlugin.externalViewEvents = eventSink
+    externalDisplayPlugin.connectReturn?.invoke()
   }
 
   override fun onCancel(arguments: Any?)

@@ -12,7 +12,6 @@ class ReceiveParameters {
     /// add parameters listener
     StreamSubscription streamSubscription =
         _receiveParametersListener.receiveBroadcastStream().listen((event) {
-      print(event);
       for (var listener in _listeners) {
         listener(action: event["action"], value: event["value"]);
       }
