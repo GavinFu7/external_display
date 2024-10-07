@@ -2,8 +2,6 @@
 
 "waitingTransferParameters" Change To "waitingTransferParametersReady"
 
-External Display support FlutterPlugin
-
 ## 0.1.2
 
 ### waiting external monitor receive parameters ready

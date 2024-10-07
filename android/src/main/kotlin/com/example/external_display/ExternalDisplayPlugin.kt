@@ -24,7 +24,6 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
-import io.flutter.plugins.GeneratedPluginRegistrant
 import org.json.JSONObject
 
 import android.content.ContentValues.TAG
@@ -87,7 +86,6 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
             val flutterEngine : FlutterEngine
             if (FlutterEngineCache.getInstance().get(routeName) == null) {
               flutterEngine = FlutterEngine(context!!)
-              GeneratedPluginRegistrant.registerWith(flutterEngine)
               
               flutterEngine.navigationChannel.setInitialRoute(routeName)
 
