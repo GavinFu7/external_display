@@ -9,11 +9,9 @@ Route<dynamic> generateRoute(RouteSettings settings) {
     print(value);
   });
   return MaterialPageRoute(
-    builder: (_) => Scaffold(
-      body: Center(
-        child: Text('The route name is: ${settings.name}')),
-    )
-  );
+      builder: (_) => Scaffold(
+            body: Center(child: Text('The route name is: ${settings.name}')),
+          ));
 }
 
 void main() {
@@ -22,9 +20,7 @@ void main() {
 
 @pragma('vm:entry-point')
 void externalDisplayMain() {
-  runApp(const MaterialApp(
-    onGenerateRoute: generateRoute
-  ));
+  runApp(const MaterialApp(onGenerateRoute: generateRoute));
 }
 
 class MyApp extends StatelessWidget {
@@ -32,9 +28,7 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
-      home: Home()
-    );
+    return const MaterialApp(home: Home());
   }
 }
 
@@ -50,11 +44,10 @@ class _HomeState extends State<Home> {
   String state = "Unplug";
   String resolution = "";
 
-  onDisplayChange(connecting) async{
+  onDisplayChange(connecting) async {
     if (connecting) {
       state = "Plug";
-      setState(() {
-      });
+      setState(() {});
     } else {
       setState(() {
         state = "Unplug";
@@ -72,80 +65,76 @@ class _HomeState extends State<Home> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('External Display Example'),
-      ),
-      body: Container(
-        color: Colors.white,
-        child: Column(
-          children: [
-            Container(
-              height: 100,
-              alignment: Alignment.center,
-              child: Text("External Monitor is $state")
-            ),
-            Container(
-              height: 100,
-              alignment: Alignment.center,
-              child: TextButton(
-                style: ButtonStyle(
-                  foregroundColor: MaterialStateProperty.all<Color>(Colors.blue),
-                ),
-                onPressed: () async { 
-                  await externalDisplay.connect();
-                  externalDisplay.waitingTransferParameters(
-                    onReady: () {
-                      print("First transfer parameters ready!");
-                      externalDisplay.transferParameters(action: "testing", value: {"c" : "cat", "d" : "dog"});
-                    },
-                    onError: () {
-                      print("First transfer parameters fail!");
-                    }
-                  );
-                  setState(() {
-                    resolution = "width:${externalDisplay.resolution?.width}px, height:${externalDisplay.resolution?.height}px";
-                  });
-                },
-                child: const Text("Connect")
-              ),
-            ),
-            Container(
-              height: 100,
-              alignment: Alignment.center,
-              child: TextButton(
-                style: ButtonStyle(
-                  foregroundColor: MaterialStateProperty.all<Color>(Colors.blue),
-                ),
-                onPressed: () async { 
-                  await externalDisplay.connect(routeName: "Testing");
-                  setState(() {
-                    resolution = "width:${externalDisplay.resolution?.width}px, height:${externalDisplay.resolution?.height}px";
-                  });
-                },
-                child: const Text("Connect")
-              ),
-            ),
-            Container(
-              height: 100,
-              alignment: Alignment.center,
-              child: TextButton(
-                style: ButtonStyle(
-                  foregroundColor: MaterialStateProperty.all<Color>(Colors.blue),
-                ),
-                onPressed: () async { 
-                  await externalDisplay.transferParameters(action: "testing", value: {"a" : "apple", "b" : "boy"});
-                },
-                child: const Text("Transfer parameters")
-              ),
-            ),
-            Container(
-              height: 100,
-              alignment: Alignment.center,
-              child: Text(resolution)
-            )
-          ]
+        appBar: AppBar(
+          title: const Text('External Display Example'),
         ),
-      )
-    );
+        body: Container(
+          color: Colors.white,
+          child: Column(children: [
+            Container(
+                height: 100,
+                alignment: Alignment.center,
+                child: Text("External Monitor is $state")),
+            Container(
+              height: 100,
+              alignment: Alignment.center,
+              child: TextButton(
+                  style: ButtonStyle(
+                    foregroundColor:
+                        MaterialStateProperty.all<Color>(Colors.blue),
+                  ),
+                  onPressed: () async {
+                    await externalDisplay.connect();
+                    externalDisplay.waitingTransferParameters(onReady: () {
+                      print("First transfer parameters ready!");
+                      externalDisplay.transferParameters(
+                          action: "testing", value: {"c": "cat", "d": "dog"});
+                    }, onError: () {
+                      print("First transfer parameters fail!");
+                    });
+                    setState(() {
+                      resolution =
+                          "width:${externalDisplay.resolution?.width}px, height:${externalDisplay.resolution?.height}px";
+                    });
+                  },
+                  child: const Text("Connect")),
+            ),
+            Container(
+              height: 100,
+              alignment: Alignment.center,
+              child: TextButton(
+                  style: ButtonStyle(
+                    foregroundColor:
+                        MaterialStateProperty.all<Color>(Colors.blue),
+                  ),
+                  onPressed: () async {
+                    await externalDisplay.connect(routeName: "Testing");
+                    setState(() {
+                      resolution =
+                          "width:${externalDisplay.resolution?.width}px, height:${externalDisplay.resolution?.height}px";
+                    });
+                  },
+                  child: const Text("Connect")),
+            ),
+            Container(
+              height: 100,
+              alignment: Alignment.center,
+              child: TextButton(
+                  style: ButtonStyle(
+                    foregroundColor:
+                        MaterialStateProperty.all<Color>(Colors.blue),
+                  ),
+                  onPressed: () async {
+                    await externalDisplay.transferParameters(
+                        action: "testing", value: {"a": "apple", "b": "boy"});
+                  },
+                  child: const Text("Transfer parameters")),
+            ),
+            Container(
+                height: 100,
+                alignment: Alignment.center,
+                child: Text(resolution))
+          ]),
+        ));
   }
 }

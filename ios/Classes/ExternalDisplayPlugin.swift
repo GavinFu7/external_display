@@ -1,5 +1,6 @@
 import Flutter
 import UIKit
+import FlutterPluginRegistrant
 
 public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
     var externalWindow:UIWindow?
@@ -30,6 +31,7 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
                 if (externalWindow == nil || routeName != router) {
                     let flutterEngine = FlutterEngine()
                     flutterEngine.run(withEntrypoint: "externalDisplayMain", initialRoute: routeName)
+                    GeneratedPluginRegistrant.register(with: flutterEngine)
                     externalViewController = FlutterViewController(engine: flutterEngine, nibName: nil, bundle: nil)
                     
                     let receiveParameters = FlutterEventChannel(name: "receiveParametersListener", binaryMessenger: externalViewController.binaryMessenger)
