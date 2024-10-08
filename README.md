@@ -8,9 +8,9 @@ Flutter plugin support for connecting to external displays through wired or wire
 
 ### iOS
 
-如果「external_display」需要使用套件，請在「AppDelegate.swift」中加入以下程式碼：
+如果 `external_display` 需要使用套件，請在 `AppDelegate.swift` 中加入以下程式碼：
 
-If "external_display" requires the use packages, please add the following code to "AppDelegate.swift":
+If `external_display` requires the use packages, please add the following code to `AppDelegate.swift`:
 
 ```
 import external_display
@@ -80,9 +80,9 @@ await externalDisplay.transferParameters(action: actionName, value: parameters);
 
 ### waiting external monitor receive parameters ready
 
-連接外接顯示器後，如果需要立即傳送參數，則需要使用 "waitingTransferParametersReady" 來確保外接顯示器可以接收參數。
+連接外接顯示器後，如果需要立即傳送參數，則需要使用 `waitingTransferParametersReady` 來確保外接顯示器可以接收參數。
 
-After connecting an external monitor, if you need to transfer parameters immediately, you need to use "waitingTransferParametersReady" to ensure that the external monitor can receive the parameters.
+After connecting an external monitor, if you need to transfer parameters immediately, you need to use `waitingTransferParametersReady` to ensure that the external monitor can receive the parameters.
 
 ```
 externalDisplay.connect();

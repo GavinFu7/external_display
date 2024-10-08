@@ -88,6 +88,12 @@ public class MainViewHandler: NSObject, FlutterStreamHandler {
     var didDisconnectObserver:NSObjectProtocol?
     
     public func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
+        if #available(iOS 14.0, *) {
+            if (ProcessInfo.processInfo.isiOSAppOnMac) {
+                return nil
+            }
+        }
+
         if (UIScreen.screens.count > 1) {
             events(true)
         }
