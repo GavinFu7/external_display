@@ -8,9 +8,9 @@ Flutter plugin support for connecting to external displays through wired or wire
 
 ### iOS
 
-如果 "external_display" 需要使用外掛程式，請在"AppDelegate.swift" 加入：
+如果「external_display」需要使用套件，請在「AppDelegate.swift」中加入以下程式碼：
 
-If "external_display" requires the use packages, please add in "AppDelegate.swift":
+If "external_display" requires the use packages, please add the following code to "AppDelegate.swift":
 
 ```
 import external_display
