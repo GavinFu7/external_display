@@ -7,7 +7,9 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
     var connectReturn:(() -> Void)?
     var externalViewController:FlutterViewController!
     public var externalViewEvents:FlutterEventSink?
+    public static var registerGeneratedPlugin:((FlutterViewController)->Void)?
     
+
     public static func register(with registrar: FlutterPluginRegistrar) {
         let onDisplayChange = FlutterEventChannel(name: "monitorStateListener", binaryMessenger: registrar.messenger())
         onDisplayChange.setStreamHandler(MainViewHandler())
@@ -31,6 +33,7 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
                     let flutterEngine = FlutterEngine()
                     flutterEngine.run(withEntrypoint: "externalDisplayMain", initialRoute: routeName)
                     externalViewController = FlutterViewController(engine: flutterEngine, nibName: nil, bundle: nil)
+                    ExternalDisplayPlugin.registerGeneratedPlugin?(externalViewController)
                     
                     let receiveParameters = FlutterEventChannel(name: "receiveParametersListener", binaryMessenger: externalViewController.binaryMessenger)
                     receiveParameters.setStreamHandler(ExternalViewHandler(plugin: self))

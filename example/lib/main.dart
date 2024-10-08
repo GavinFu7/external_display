@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:external_display/external_display.dart';
 import 'package:external_display/receive_parameters.dart';
+import 'package:path_provider/path_provider.dart';
 
 Route<dynamic> generateRoute(RouteSettings settings) {
   ReceiveParameters receiveParameters = ReceiveParameters();
@@ -8,6 +9,11 @@ Route<dynamic> generateRoute(RouteSettings settings) {
     print(action);
     print(value);
   });
+
+  getApplicationDocumentsDirectory().then((path) {
+    print(path.path);
+  });
+
   return MaterialPageRoute(
       builder: (_) => Scaffold(
             body: Center(child: Text('The route name is: ${settings.name}')),
@@ -59,6 +65,11 @@ class _HomeState extends State<Home> {
   @override
   void initState() {
     super.initState();
+
+  getApplicationDocumentsDirectory().then((path) {
+    print(path.path);
+  });
+
     externalDisplay.addListener(onDisplayChange);
   }
 

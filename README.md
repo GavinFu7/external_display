@@ -1,8 +1,36 @@
 # external_display
 
+Flutter 外掛程式支援透過有線或無線連接連接到外部顯示器
+
 Flutter plugin support for connecting to external displays through wired or wireless connections
 
 ## Getting Started
+
+### iOS
+
+如果 "external_display" 需要使用外掛程式，請在"AppDelegate.swift" 加入：
+
+If "external_display" requires the use of a plug-in, please add in "AppDelegate.swift":
+
+```
+import external_display
+.
+.
+  override func application(
+    _ application: UIApplication,
+    didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
+  ) -> Bool {
+    ExternalDisplayPlugin.registerGeneratedPlugin = registerGeneratedPlugin
+    .
+    .
+  }
+
+  func registerGeneratedPlugin(controller:FlutterViewController) {
+    GeneratedPluginRegistrant.register(with: controller)
+  }
+```
+
+example: <https://github.com/GavinFu7/external_display/blob/main/example/ios/Runner/AppDelegate.swift>
 
 ### External display entry point `externalDisplayMain`
 ```
@@ -51,6 +79,11 @@ await externalDisplay.transferParameters(action: actionName, value: parameters);
 ```
 
 ### waiting external monitor receive parameters ready
+
+連接外接顯示器後，如果需要立即傳送參數，則需要使用 "waitingTransferParametersReady" 來確保外接顯示器可以接收參數。
+
+After connecting an external monitor, if you need to transfer parameters immediately, you need to use "waitingTransferParametersReady" to ensure that the external monitor can receive the parameters.
+
 ```
 externalDisplay.connect();
 externalDisplay.waitingTransferParametersReady(
@@ -58,7 +91,7 @@ externalDisplay.waitingTransferParametersReady(
     print("Transfer parameters ready, transfer data!");
     externalDisplay.transferParameters(action: "action", value: "data");
   },
-  onError: () { // waiting timeout
+  onError: () { // 等候超過時間 waiting timeout
     print("Transfer parameters fail!");
   }
 );
