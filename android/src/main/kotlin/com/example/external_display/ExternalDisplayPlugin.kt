@@ -86,7 +86,7 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
             val flutterEngine : FlutterEngine
             if (FlutterEngineCache.getInstance().get(routeName) == null) {
               flutterEngine = FlutterEngine(context!!)
-              
+
               flutterEngine.navigationChannel.setInitialRoute(routeName)
 
               FlutterInjector.instance().flutterLoader().startInitialization(context!!)
@@ -130,7 +130,14 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
         }
       }
       "waitingTransferParametersReady" -> {
+        val handler = Handler(Looper.getMainLooper())
+        var sendFail = Runnable {
+          result.success(false)
+          connectReturn = null
+        }
+
         fun returnResolution() {
+          handler.removeCallbacks(sendFail)
           result.success(true)
           connectReturn = null
         }
@@ -139,10 +146,7 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
         if (externalViewEvents != null) {
           connectReturn?.invoke()
         } else {
-          Handler().postDelayed({
-            result.success(false)
-            connectReturn = null
-          }, 7000)
+          handler.postDelayed(sendFail, 10000)
         }
       }
       "transferParameters" -> {

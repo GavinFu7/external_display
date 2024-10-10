@@ -2,13 +2,13 @@ import Flutter
 import UIKit
 
 public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
+    public static var connectReturn:(() -> Void)?
+    public static var externalViewEvents:FlutterEventSink?
+    public static var registerGeneratedPlugin:((FlutterViewController)->Void)?
+    public static var receiveParameters:FlutterEventChannel?
     var externalWindow:UIWindow?
     var router:String = ""
-    var connectReturn:(() -> Void)?
     var externalViewController:FlutterViewController!
-    public var externalViewEvents:FlutterEventSink?
-    public static var registerGeneratedPlugin:((FlutterViewController)->Void)?
-    
 
     public static func register(with registrar: FlutterPluginRegistrar) {
         let onDisplayChange = FlutterEventChannel(name: "monitorStateListener", binaryMessenger: registrar.messenger())
@@ -20,65 +20,68 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
     
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         switch call.method {
-        case "connect":
-            if (UIScreen.screens.count > 1) {
-                let args = call.arguments as? Dictionary<String, String>
-                let routeName = args?["routeName"] ?? "externalView"
-                let externalScreen = UIScreen.screens[1]
-                let mode = externalScreen.availableModes.last
-                externalScreen.currentMode = mode;
-                var frame = CGRect.zero
-                frame.size = mode!.size
-                if (externalWindow == nil || routeName != router) {
-                    let flutterEngine = FlutterEngine()
-                    flutterEngine.run(withEntrypoint: "externalDisplayMain", initialRoute: routeName)
-                    externalViewController = FlutterViewController(engine: flutterEngine, nibName: nil, bundle: nil)
-                    ExternalDisplayPlugin.registerGeneratedPlugin?(externalViewController)
-                    
-                    let receiveParameters = FlutterEventChannel(name: "receiveParametersListener", binaryMessenger: externalViewController.binaryMessenger)
-                    receiveParameters.setStreamHandler(ExternalViewHandler(plugin: self))
-                    
-                    externalViewController.view.frame = frame
-                    externalWindow = UIWindow(frame: frame)
-                } else {
-                    externalViewController.view.frame = frame
-                    externalWindow?.frame = frame
-                    externalViewController.view.setNeedsLayout()
-                }
-                externalWindow?.rootViewController = externalViewController
-                externalWindow?.screen = externalScreen
-                externalWindow?.makeKeyAndVisible()
+            case "connect":
+                if (UIScreen.screens.count > 1) {
+                    let args = call.arguments as? Dictionary<String, String>
+                    let routeName = args?["routeName"] ?? "externalView"
+                    let externalScreen = UIScreen.screens[1]
+                    let mode = externalScreen.availableModes.last
+                    externalScreen.currentMode = mode;
+                    var frame = CGRect.zero
+                    frame.size = mode!.size
 
-                result(["height":mode!.size.height, "width":mode!.size.width])
-            } else {
-                result(false)
-            }
-        case "waitingTransferParametersReady":
-            func returnResolution() -> Void {
-                result(true)
-                connectReturn = nil
-            }
-            connectReturn = returnResolution
-
-            if (externalViewEvents != nil) {
-                connectReturn?()
-            } else {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 7.0) {
-                    if (self.connectReturn != nil) {
-                        result(false)
-                        self.connectReturn = nil
+                    if (externalWindow == nil || routeName != router) {
+                        let flutterEngine = FlutterEngine()
+                        flutterEngine.run(withEntrypoint: "externalDisplayMain", initialRoute: routeName)
+                        externalViewController = FlutterViewController(engine: flutterEngine, nibName: nil, bundle: nil)
+                        ExternalDisplayPlugin.registerGeneratedPlugin?(externalViewController)
+                        
+                        ExternalDisplayPlugin.receiveParameters = FlutterEventChannel(name: "receiveParametersListener", binaryMessenger: externalViewController.binaryMessenger)
+                        ExternalDisplayPlugin.receiveParameters?.setStreamHandler(ExternalViewHandler())
+                        
+                        externalViewController.view.frame = frame
+                        externalWindow = UIWindow(frame: frame)
+                    } else {
+                        externalViewController.view.frame = frame
+                        externalWindow?.frame = frame
+                        externalViewController.view.setNeedsLayout()
                     }
+                    externalWindow?.rootViewController = externalViewController
+                    externalWindow?.screen = externalScreen
+                    externalWindow?.makeKeyAndVisible()
+
+                    result(["height":mode!.size.height, "width":mode!.size.width])
+                } else {
+                    result(false)
                 }
-            }
-        case "transferParameters":
-            if (externalViewEvents != nil) {
-                externalViewEvents?(call.arguments)
-                result(true)
-            } else {
-                result(false)
-            }
-        default:
-            result(FlutterMethodNotImplemented)
+            case "waitingTransferParametersReady":
+                let sendFail = DispatchWorkItem(block: {
+                    result(false)
+                    ExternalDisplayPlugin.connectReturn = nil
+                })
+                
+                func returnResolution() -> Void {
+                    sendFail.cancel()
+                    result(true)
+                    ExternalDisplayPlugin.connectReturn = nil
+                }
+                ExternalDisplayPlugin.connectReturn = returnResolution
+
+                
+                if (ExternalDisplayPlugin.externalViewEvents != nil) {
+                    ExternalDisplayPlugin.connectReturn?()
+                } else {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 10.0, execute: sendFail)
+                }
+            case "transferParameters":
+                if (ExternalDisplayPlugin.externalViewEvents != nil) {
+                    ExternalDisplayPlugin.externalViewEvents?(call.arguments)
+                    result(true)
+                } else {
+                    result(false)
+                }
+            default:
+                result(FlutterMethodNotImplemented)
         }
     }
 }
@@ -103,6 +106,9 @@ public class MainViewHandler: NSObject, FlutterStreamHandler {
         }
         
         didDisconnectObserver = NotificationCenter.default.addObserver(forName:UIScreen.didDisconnectNotification, object:nil, queue: nil) {_ in
+            ExternalDisplayPlugin.receiveParameters?.setStreamHandler(nil)
+            ExternalDisplayPlugin.receiveParameters = nil
+            ExternalDisplayPlugin.externalViewEvents = nil
             events(false)
         }
         return nil
@@ -117,20 +123,15 @@ public class MainViewHandler: NSObject, FlutterStreamHandler {
 }
 
 public class ExternalViewHandler: NSObject, FlutterStreamHandler {
-    var externalDisplayPlugin : ExternalDisplayPlugin
-    
-    init(plugin : ExternalDisplayPlugin) {
-        externalDisplayPlugin = plugin
-    }
-    
     public func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
-        externalDisplayPlugin.externalViewEvents = events
-        externalDisplayPlugin.connectReturn?()
+        ExternalDisplayPlugin.externalViewEvents = events
+        ExternalDisplayPlugin.connectReturn?()
         return nil
     }
-    
+
     public func onCancel(withArguments arguments: Any?) -> FlutterError? {
-        externalDisplayPlugin.externalViewEvents = nil
+        ExternalDisplayPlugin.receiveParameters?.setStreamHandler(nil)
+        ExternalDisplayPlugin.externalViewEvents = nil
         return nil
     }
 }
