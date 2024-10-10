@@ -66,9 +66,9 @@ class _HomeState extends State<Home> {
   void initState() {
     super.initState();
 
-  getApplicationDocumentsDirectory().then((path) {
-    print(path.path);
-  });
+    getApplicationDocumentsDirectory().then((path) {
+      print(path.path);
+    });
 
     externalDisplay.addListener(onDisplayChange);
   }

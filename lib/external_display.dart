@@ -16,9 +16,11 @@ class ExternalDisplay {
   ExternalDisplay() {
     StreamSubscription streamSubscription =
         _monitorStateListener.receiveBroadcastStream().listen((event) {
-      _isPlugging = event;
-      for (var listener in _listeners) {
-        listener(event);
+      if (_isPlugging != event) {
+        _isPlugging = event;
+        for (var listener in _listeners) {
+          listener(event);
+        }
       }
     });
 
