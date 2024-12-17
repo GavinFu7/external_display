@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 
 /// Provides the 'ExternalDisplay' method.
 class ExternalDisplay {
-  final Set<Function(dynamic)> _listeners = {};
+  final Set<Function(dynamic)> _statusListeners = {};
+  final Set<Function({required String action, dynamic value})>
+      _receiveParameterListeners = {};
   bool _isPlugging = false;
   Size? _currentResolution;
 
@@ -16,10 +18,16 @@ class ExternalDisplay {
   ExternalDisplay() {
     StreamSubscription streamSubscription =
         _monitorStateListener.receiveBroadcastStream().listen((event) {
-      if (_isPlugging != event) {
-        _isPlugging = event;
-        for (var listener in _listeners) {
-          listener(event);
+      if (event is bool) {
+        if (_isPlugging != event) {
+          _isPlugging = event;
+          for (var listener in _statusListeners) {
+            listener(event);
+          }
+        }
+      } else {
+        for (var listener in _receiveParameterListeners) {
+          listener(action: event["action"], value: event["value"]);
         }
       }
     });
@@ -70,13 +78,26 @@ class ExternalDisplay {
   }
 
   /// Monitor external monitor plugging and unplugging
-  void addListener(Function(dynamic) listener) {
-    _listeners.add(listener);
+  void addStatusListener(Function(dynamic) listener) {
+    _statusListeners.add(listener);
   }
 
   /// Cancel monitoring of external monitor
-  bool removeListener(Function listener) {
-    final result = _listeners.remove(listener);
+  bool removeStatusListener(Function listener) {
+    final result = _statusListeners.remove(listener);
+
+    return result;
+  }
+
+  /// Monitor receiving parameters
+  void addReceiveParameterListener(
+      Function({required String action, dynamic value}) listener) {
+    _receiveParameterListeners.add(listener);
+  }
+
+  /// Cancel receiving parameters
+  bool removeReceiveParameterListener(Function listener) {
+    final result = _receiveParameterListeners.remove(listener);
 
     return result;
   }

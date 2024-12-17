@@ -4,8 +4,10 @@ import 'package:flutter/services.dart';
 /// Provides the 'ReceiveParameters' method.
 class ReceiveParameters {
   final Set<Function({required String action, dynamic value})> _listeners = {};
+
   static const EventChannel _receiveParametersListener =
       EventChannel('receiveParametersListener');
+  static const MethodChannel _sendParameters = MethodChannel('sendParameters');
 
   /// Initialize ReceiveParameters class
   ReceiveParameters() {
@@ -23,6 +25,13 @@ class ReceiveParameters {
   static final _finalizer = Finalizer<StreamSubscription>((streamSubscription) {
     streamSubscription.cancel();
   });
+
+  /// Send parameters to Main page
+  Future<bool> transferParameters(
+      {required String action, dynamic value}) async {
+    return await _sendParameters
+        .invokeMethod('transferParameters', {"action": action, "value": value});
+  }
 
   /// Monitor receiving parameters
   void addListener(Function({required String action, dynamic value}) listener) {

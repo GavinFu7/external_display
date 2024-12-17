@@ -3,9 +3,13 @@ import UIKit
 
 public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
     public static var connectReturn:(() -> Void)?
+    public static var mainViewEvents:FlutterEventSink?
     public static var externalViewEvents:FlutterEventSink?
     public static var registerGeneratedPlugin:((FlutterViewController)->Void)?
     public static var receiveParameters:FlutterEventChannel?
+    public static var sendParameters:FlutterMethodChannel?
+    
+    
     var externalWindow:UIWindow?
     var router:String = ""
     var externalViewController:FlutterViewController!
@@ -38,6 +42,8 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
                         
                         ExternalDisplayPlugin.receiveParameters = FlutterEventChannel(name: "receiveParametersListener", binaryMessenger: externalViewController.binaryMessenger)
                         ExternalDisplayPlugin.receiveParameters?.setStreamHandler(ExternalViewHandler())
+                        ExternalDisplayPlugin.sendParameters = FlutterMethodChannel(name: "sendParameters", binaryMessenger: externalViewController.binaryMessenger)
+                        flutterEngine.registrar(forPlugin: "")?.addMethodCallDelegate(ExternalDisplaySendParameters(), channel: ExternalDisplayPlugin.sendParameters!)
                         
                         externalViewController.view.frame = frame
                         externalWindow = UIWindow(frame: frame)
@@ -86,11 +92,21 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
     }
 }
 
+public class ExternalDisplaySendParameters: NSObject, FlutterPlugin {
+    public static func register(with registrar: any FlutterPluginRegistrar) {
+    }
+    
+    public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+        ExternalDisplayPlugin.mainViewEvents?(call.arguments)
+    }
+}
+
 public class MainViewHandler: NSObject, FlutterStreamHandler {
     var didConnectObserver:NSObjectProtocol?
     var didDisconnectObserver:NSObjectProtocol?
     
     public func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
+        ExternalDisplayPlugin.mainViewEvents = events
         if #available(iOS 14.0, *) {
             if (ProcessInfo.processInfo.isiOSAppOnMac) {
                 return nil
@@ -117,6 +133,7 @@ public class MainViewHandler: NSObject, FlutterStreamHandler {
     public func onCancel(withArguments arguments: Any?) -> FlutterError? {
         NotificationCenter.default.removeObserver(didConnectObserver)
         NotificationCenter.default.removeObserver(didDisconnectObserver)
+        ExternalDisplayPlugin.mainViewEvents = nil
         
         return nil
     }

@@ -70,7 +70,7 @@ class _HomeState extends State<Home> {
       print(path.path);
     });
 
-    externalDisplay.addListener(onDisplayChange);
+    externalDisplay.addStatusListener(onDisplayChange);
   }
 
   @override
