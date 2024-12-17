@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
 
-/// Provides the 'ReceiveParameters' method.
+/// 提供 'ReceiveParameters' method.
 class ReceiveParameters {
   final Set<Function({required String action, dynamic value})> _listeners = {};
 
@@ -9,9 +9,9 @@ class ReceiveParameters {
       EventChannel('receiveParametersListener');
   static const MethodChannel _sendParameters = MethodChannel('sendParameters');
 
-  /// Initialize ReceiveParameters class
+  /// 初始化 ReceiveParameters class
   ReceiveParameters() {
-    /// add parameters listener
+    // 開始監控 swift 傳回的資料 - 是主頁面傳來的參數
     StreamSubscription streamSubscription =
         _receiveParametersListener.receiveBroadcastStream().listen((event) {
       for (var listener in _listeners) {
@@ -22,23 +22,25 @@ class ReceiveParameters {
     _finalizer.attach(this, streamSubscription);
   }
 
+  // 如果 'ReceiveParameters' 不再可以使用
   static final _finalizer = Finalizer<StreamSubscription>((streamSubscription) {
+    // 停止監控 swift 傳回的資料
     streamSubscription.cancel();
   });
 
-  /// Send parameters to Main page
+  /// 發送參數到主頁面
   Future<bool> transferParameters(
       {required String action, dynamic value}) async {
     return await _sendParameters
         .invokeMethod('transferParameters', {"action": action, "value": value});
   }
 
-  /// Monitor receiving parameters
+  /// 監控接收參數
   void addListener(Function({required String action, dynamic value}) listener) {
     _listeners.add(listener);
   }
 
-  /// Cancel receiving parameters
+  /// 取消接收參數
   bool removeListener(Function listener) {
     final result = _listeners.remove(listener);
 

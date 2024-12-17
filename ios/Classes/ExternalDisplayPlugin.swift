@@ -22,8 +22,10 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
         registrar.addMethodCallDelegate(ExternalDisplayPlugin(), channel: connect)
     }
     
+    // 接收主頁面的命令和參數
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         switch call.method {
+            // 連結外部顯示器
             case "connect":
                 if (UIScreen.screens.count > 1) {
                     let args = call.arguments as? Dictionary<String, String>
@@ -60,6 +62,8 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
                 } else {
                     result(false)
                 }
+            
+            // 等候外部顯示器可以接收參數
             case "waitingTransferParametersReady":
                 let sendFail = DispatchWorkItem(block: {
                     result(false)
@@ -79,6 +83,8 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
                 } else {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 10.0, execute: sendFail)
                 }
+            
+            // 發送參數到外部顯示頁面
             case "transferParameters":
                 if (ExternalDisplayPlugin.externalViewEvents != nil) {
                     ExternalDisplayPlugin.externalViewEvents?(call.arguments)
@@ -86,41 +92,48 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
                 } else {
                     result(false)
                 }
+
             default:
                 result(FlutterMethodNotImplemented)
         }
     }
 }
 
+// 接收外部顯示頁面的命令和參數
 public class ExternalDisplaySendParameters: NSObject, FlutterPlugin {
-    public static func register(with registrar: any FlutterPluginRegistrar) {
-    }
-    
+    public static func register(with registrar: any FlutterPluginRegistrar) {}
+
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         ExternalDisplayPlugin.mainViewEvents?(call.arguments)
     }
 }
 
+// 主頁面 Flutter 開始和停止對 swift 傳送資料的監控
 public class MainViewHandler: NSObject, FlutterStreamHandler {
     var didConnectObserver:NSObjectProtocol?
     var didDisconnectObserver:NSObjectProtocol?
     
+    // 主頁面 Flutter 的開始監控 swift 傳回的資料
     public func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
         ExternalDisplayPlugin.mainViewEvents = events
         if #available(iOS 14.0, *) {
+            // 檢查是否Mac機
             if (ProcessInfo.processInfo.isiOSAppOnMac) {
                 return nil
             }
         }
 
+        // 檢查是否已連接外部顯示器
         if (UIScreen.screens.count > 1) {
             events(true)
         }
         
+        // 開始監控插入外部顯示器
         didConnectObserver = NotificationCenter.default.addObserver(forName:UIScreen.didConnectNotification, object:nil, queue:nil) {_ in
             events(true)
         }
         
+        // 開始監控拔出外部顯示器
         didDisconnectObserver = NotificationCenter.default.addObserver(forName:UIScreen.didDisconnectNotification, object:nil, queue: nil) {_ in
             ExternalDisplayPlugin.receiveParameters?.setStreamHandler(nil)
             ExternalDisplayPlugin.receiveParameters = nil
@@ -130,22 +143,28 @@ public class MainViewHandler: NSObject, FlutterStreamHandler {
         return nil
     }
     
+    // 主頁面 Flutter 的停止監控 swift 傳回的資料
     public func onCancel(withArguments arguments: Any?) -> FlutterError? {
+        // 停止監控插入和拔出外部顯示器
         NotificationCenter.default.removeObserver(didConnectObserver)
         NotificationCenter.default.removeObserver(didDisconnectObserver)
+        // 取消 swift 傳回的資料功能
         ExternalDisplayPlugin.mainViewEvents = nil
         
         return nil
     }
 }
 
+// 外部顯示頁面 Flutter 開始和停止對 swift 傳送資料的監控
 public class ExternalViewHandler: NSObject, FlutterStreamHandler {
+    // 外部顯示頁面 Flutter 的停止監控 swift 傳回的資料
     public func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
         ExternalDisplayPlugin.externalViewEvents = events
         ExternalDisplayPlugin.connectReturn?()
         return nil
     }
 
+    // 外部顯示頁面 Flutter 的停止監控 swift 傳回的資料
     public func onCancel(withArguments arguments: Any?) -> FlutterError? {
         ExternalDisplayPlugin.receiveParameters?.setStreamHandler(nil)
         ExternalDisplayPlugin.externalViewEvents = nil
