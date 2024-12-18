@@ -73,12 +73,10 @@ or
 await externalDisplay.connect(routeName: name);
 ```
 
-## Transfer parameters to external monitor
-```
-await externalDisplay.sendParameters(action: actionName, value: parameters);
-```
+## main view transfer parameters
+
 ### Add receive parameters listener
-Receive parameters from external monitor view
+Receive parameters from external view
 ```
 transferParameters.addListener(({required action, value}) {
   print(action);
@@ -89,6 +87,11 @@ transferParameters.addListener(({required action, value}) {
 Remove receive parameters listener
 ```
 transferParameters.removeListener(receive);
+```
+
+### Transfer parameters to external view
+```
+await externalDisplay.sendParameters(action: actionName, value: parameters);
 ```
 
 ### waiting external monitor receive parameters ready
@@ -110,7 +113,7 @@ externalDisplay.waitingTransferParametersReady(
 );
 ```
 
-## external view receive parameters
+## external view transfer parameters
 
 ### include `transfer_parameters.dart`
 ```
