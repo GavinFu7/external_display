@@ -1,24 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:external_display/external_display.dart';
-import 'package:external_display/receive_parameters.dart';
-import 'package:path_provider/path_provider.dart';
-
-Route<dynamic> generateRoute(RouteSettings settings) {
-  ReceiveParameters receiveParameters = ReceiveParameters();
-  receiveParameters.addListener(({required action, value}) {
-    print(action);
-    print(value);
-  });
-
-  getApplicationDocumentsDirectory().then((path) {
-    print(path.path);
-  });
-
-  return MaterialPageRoute(
-      builder: (_) => Scaffold(
-            body: Center(child: Text('The route name is: ${settings.name}')),
-          ));
-}
+import 'external_view.dart';
 
 void main() {
   runApp(const MyApp());
@@ -65,11 +47,6 @@ class _HomeState extends State<Home> {
   @override
   void initState() {
     super.initState();
-
-    getApplicationDocumentsDirectory().then((path) {
-      print(path.path);
-    });
-
     externalDisplay.addStatusListener(onDisplayChange);
   }
 
@@ -98,7 +75,7 @@ class _HomeState extends State<Home> {
                     await externalDisplay.connect();
                     externalDisplay.waitingTransferParametersReady(onReady: () {
                       print("First transfer parameters ready!");
-                      externalDisplay.transferParameters(
+                      externalDisplay.sendParameters(
                           action: "testing", value: {"c": "cat", "d": "dog"});
                     }, onError: () {
                       print("First transfer parameters fail!");
@@ -136,7 +113,7 @@ class _HomeState extends State<Home> {
                         MaterialStateProperty.all<Color>(Colors.blue),
                   ),
                   onPressed: () async {
-                    await externalDisplay.transferParameters(
+                    await externalDisplay.sendParameters(
                         action: "testing", value: {"a": "apple", "b": "boy"});
                   },
                   child: const Text("Transfer parameters")),

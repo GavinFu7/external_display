@@ -34,45 +34,54 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
   ///
   /// This local reference serves to register the plugin with the Flutter Engine and unregister it
   /// when the Flutter Engine is detached from the Activity
-  public var externalViewEvents : EventChannel.EventSink? = null
-  public var connectReturn : (() -> Unit)? = null
+  var connectReturn : (() -> Unit)? = null
+  var mainViewEvents : EventChannel.EventSink? = null
+  var externalViewEvents : EventChannel.EventSink? = null
+
   private lateinit var methodChannel : MethodChannel
   private lateinit var eventChannel : EventChannel
   private lateinit var context: Context
   private lateinit var displayManager : DisplayManager
-  private lateinit var events : EventChannel.EventSink
+
+  // 處理監控插入和拔出外部顯示器
   private val displayListener = object : DisplayManager.DisplayListener {
+    // 插入外部顯示器
     override fun onDisplayAdded(displayId: Int) {
-      events.success(true)
+      mainViewEvents?.success(true)
     }
+    // 拔出外部顯示器
     override fun onDisplayRemoved(displayId: Int) {
-      events.success(false)
+      mainViewEvents?.success(false)
     }
     override fun onDisplayChanged(p0: Int) {}
   }
 
-  override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
-    context = flutterPluginBinding.applicationContext
-    displayManager = flutterPluginBinding.applicationContext.getSystemService(Context.DISPLAY_SERVICE) as
-              DisplayManager
-
-    eventChannel = EventChannel(flutterPluginBinding.binaryMessenger, "monitorStateListener")
-    eventChannel.setStreamHandler(this)
-
-    methodChannel = MethodChannel(flutterPluginBinding.binaryMessenger, "displayController")
-    methodChannel.setMethodCallHandler(this)
-  }
-
+  // 初始化
+  override fun onDetachedFromActivityForConfigChanges() {}
   override fun onDetachedFromActivity() {}
   override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {}
   override fun onAttachedToActivity(binding: ActivityPluginBinding) {
     context = binding.activity
     displayManager = context?.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager;
   }
-  override fun onDetachedFromActivityForConfigChanges() {}
+  override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
+    context = flutterPluginBinding.applicationContext
+    displayManager = flutterPluginBinding.applicationContext.getSystemService(Context.DISPLAY_SERVICE) as
+              DisplayManager
 
+    // 建立 Flutter EventChannel
+    eventChannel = EventChannel(flutterPluginBinding.binaryMessenger, "monitorStateListener")
+    eventChannel.setStreamHandler(this)
+
+    // 建立 Flutter MethodChannel
+    methodChannel = MethodChannel(flutterPluginBinding.binaryMessenger, "displayController")
+    methodChannel.setMethodCallHandler(this)
+  }
+
+  // 接收主頁面的命令和參數
   override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
     when (call.method) {
+      // 連結外部顯示器
       "connect" -> {
         if (displayManager.displays.size > 1 && context != null) {
           val displayId = displayManager.displays.last().displayId;
@@ -109,6 +118,8 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
 
             val receiveParameters = EventChannel(flutterEngine.dartExecutor.binaryMessenger, "receiveParametersListener")
             receiveParameters.setStreamHandler(ExternalViewHandler(this))
+            val sendParameters = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "sendParameters")
+            sendParameters.setMethodCallHandler(ExternalViewHandler(this))
 
             val flutterView = FlutterView(context)
             flutterView.attachToFlutterEngine(flutterEngine)
@@ -129,6 +140,8 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
           result.success(false)
         }
       }
+
+      // 等候外部顯示器可以接收參數
       "waitingTransferParametersReady" -> {
         val handler = Handler(Looper.getMainLooper())
         var sendFail = Runnable {
@@ -149,7 +162,9 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
           handler.postDelayed(sendFail, 10000)
         }
       }
-      "transferParameters" -> {
+
+      // 發送參數到外部顯示頁面
+      "sendParameters" -> {
         if (externalViewEvents != null) {
           externalViewEvents?.success(call.arguments)
           result.success(true)
@@ -157,39 +172,58 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
           result.success(false)
         }
       }
+
       else -> {
         result.notImplemented()
       }
     }
   }
 
+  // 主頁面 Flutter 的開始監控 swift 傳回的資料
   override fun onListen(arguments: Any?, eventSink: EventChannel.EventSink)
   {
-    events = eventSink
+    mainViewEvents = eventSink
+    // 檢查是否已連接外部顯示器
     if (displayManager.displays.size > 1) {
-      events.success(true)
+      eventSink.success(true)
     }
+    // 開始監控插入和拔出外部顯示器
     displayManager.registerDisplayListener(displayListener, Handler(Looper.getMainLooper()))
   }
 
+  // 主頁面 Flutter 的停止監控 swift 傳回的資料
   override fun onCancel(arguments: Any?)
   {
+    // 停止監控插入和拔出外部顯示器
     displayManager.unregisterDisplayListener(displayListener)
+    // 取消 swift 傳回的資料功能
+    mainViewEvents = null
   }
 
+  // 從 FlutterEngine 移除時執行
   override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
+    eventChannel.setStreamHandler(null)
     methodChannel.setMethodCallHandler(null)
   }
 }
 
-class ExternalViewHandler constructor(plugin: ExternalDisplayPlugin) : StreamHandler {
+// 外部顯示頁面 Flutter 開始和停止對 swift 傳送資料的監控
+class ExternalViewHandler constructor(plugin: ExternalDisplayPlugin) : MethodCallHandler, StreamHandler {
   val externalDisplayPlugin = plugin
+
+  // 接收外部顯示頁面的命令和參數
+  override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
+    externalDisplayPlugin.mainViewEvents?.success(call.arguments)
+  }
+
+  // 外部顯示頁面 Flutter 的停止監控 swift 傳回的資料
   override fun onListen(arguments: Any?, eventSink: EventChannel.EventSink)
   {
     externalDisplayPlugin.externalViewEvents = eventSink
     externalDisplayPlugin.connectReturn?.invoke()
   }
 
+  // 外部顯示頁面 Flutter 的停止監控 swift 傳回的資料
   override fun onCancel(arguments: Any?)
   {
     externalDisplayPlugin.externalViewEvents = null

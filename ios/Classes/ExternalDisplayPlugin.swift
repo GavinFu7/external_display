@@ -5,19 +5,21 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
     public static var connectReturn:(() -> Void)?
     public static var mainViewEvents:FlutterEventSink?
     public static var externalViewEvents:FlutterEventSink?
+    
     public static var registerGeneratedPlugin:((FlutterViewController)->Void)?
     public static var receiveParameters:FlutterEventChannel?
     public static var sendParameters:FlutterMethodChannel?
-    
-    
     var externalWindow:UIWindow?
     var router:String = ""
     var externalViewController:FlutterViewController!
 
+    // 初始化
     public static func register(with registrar: FlutterPluginRegistrar) {
+        // 建立 Flutter EventChannel
         let onDisplayChange = FlutterEventChannel(name: "monitorStateListener", binaryMessenger: registrar.messenger())
         onDisplayChange.setStreamHandler(MainViewHandler())
         
+        // 建立 Flutter MethodChannel
         let connect = FlutterMethodChannel(name: "displayController", binaryMessenger: registrar.messenger())
         registrar.addMethodCallDelegate(ExternalDisplayPlugin(), channel: connect)
     }
@@ -85,7 +87,7 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
                 }
             
             // 發送參數到外部顯示頁面
-            case "transferParameters":
+            case "sendParameters":
                 if (ExternalDisplayPlugin.externalViewEvents != nil) {
                     ExternalDisplayPlugin.externalViewEvents?(call.arguments)
                     result(true)

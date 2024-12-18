@@ -76,10 +76,10 @@ class ExternalDisplay {
   }
 
   /// 發送參數到外部顯示頁面
-  Future<bool> transferParameters(
+  Future<bool> sendParameters(
       {required String action, dynamic value}) async {
     return await _displayController
-        .invokeMethod('transferParameters', {"action": action, "value": value});
+        .invokeMethod('sendParameters', {"action": action, "value": value});
   }
 
   /// 監控外接顯示器的插拔

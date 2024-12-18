@@ -1,16 +1,16 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
 
-/// 提供 'ReceiveParameters' method.
-class ReceiveParameters {
+/// 提供 'TransferParameters' method.
+class TransferParameters {
   final Set<Function({required String action, dynamic value})> _listeners = {};
 
   static const EventChannel _receiveParametersListener =
       EventChannel('receiveParametersListener');
   static const MethodChannel _sendParameters = MethodChannel('sendParameters');
 
-  /// 初始化 ReceiveParameters class
-  ReceiveParameters() {
+  /// 初始化 TransferParameters class
+  TransferParameters() {
     // 開始監控 swift 傳回的資料 - 是主頁面傳來的參數
     StreamSubscription streamSubscription =
         _receiveParametersListener.receiveBroadcastStream().listen((event) {
@@ -22,17 +22,17 @@ class ReceiveParameters {
     _finalizer.attach(this, streamSubscription);
   }
 
-  // 如果 'ReceiveParameters' 不再可以使用
+  // 如果 'TransferParameters' 不再可以使用
   static final _finalizer = Finalizer<StreamSubscription>((streamSubscription) {
     // 停止監控 swift 傳回的資料
     streamSubscription.cancel();
   });
 
   /// 發送參數到主頁面
-  Future<bool> transferParameters(
+  Future<bool> sendParameters(
       {required String action, dynamic value}) async {
     return await _sendParameters
-        .invokeMethod('transferParameters', {"action": action, "value": value});
+        .invokeMethod('sendParameters', {"action": action, "value": value});
   }
 
   /// 監控接收參數
