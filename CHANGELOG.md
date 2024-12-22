@@ -1,3 +1,9 @@
+## 0.3.0
+
+加入 main view 和 external display view 之間互相傳送資的功能。
+
+Add the function of transmitting parameter to each other between main view and external display view.
+
 ## 0.2.1
 
 當 iOS Apps 在 macOS 運行時，External Display 的畫面 會遮蓋 Apps 原本的畫面。所以當檢查到是 macOS 時，停用此套件。

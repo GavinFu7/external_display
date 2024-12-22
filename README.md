@@ -1,8 +1,8 @@
 # external_display
 
-Flutter 外掛程式支援透過有線或無線連接連接到外部顯示器
+Flutter 外掛程式支援透過有線或無線連接連接到外部顯示器。 並且 main view 和 external display view 之間互相傳送資料。
 
-Flutter plugin support for connecting to external displays through wired or wireless connections
+The Flutter plug-in supports connecting to an external display through a wired or wireless connection. And the main view and the external display view can transfer data to each other.
 
 ## Getting Started
 
@@ -139,7 +139,7 @@ Remove receive parameters listener
 transferParameters.removeListener(receive);
 ```
 
-## Transfer parameters to main view
+### Transfer parameters to main view
 ```
 await transferParameters.sendParameters(action: actionName, value: parameters);
 ```

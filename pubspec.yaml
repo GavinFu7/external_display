@@ -1,5 +1,5 @@
 name: external_display
-description: Flutter plugin support for connecting to external displays through wired or wireless connections
+description: "Flutter 外掛程式支援透過有線或無線連接連接到外部顯示器. 並且 main view 和 external display view 之間互相傳送資料。 The Flutter plug-in supports connecting to an external display through a wired or wireless connection. And the main view and the external display view can transfer parameter to each other."
 version: 0.3.0
 homepage: https://github.com/GavinFu7
 repository: https://github.com/GavinFu7/external_display
