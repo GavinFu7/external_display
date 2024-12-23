@@ -29,8 +29,7 @@ class TransferParameters {
   });
 
   /// 發送參數到主頁面
-  Future<bool> sendParameters(
-      {required String action, dynamic value}) async {
+  Future<bool> sendParameters({required String action, dynamic value}) async {
     return await _sendParameters
         .invokeMethod('sendParameters', {"action": action, "value": value});
   }

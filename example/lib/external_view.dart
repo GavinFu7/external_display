@@ -8,7 +8,8 @@ Route<dynamic> generateRoute(RouteSettings settings) {
     print(action);
     print(value);
 
-    transferParameters.sendParameters(action: "sendParameters", value: "form external view");
+    transferParameters.sendParameters(
+        action: "sendParameters", value: "form external view");
   });
 
   getApplicationDocumentsDirectory().then((path) {
@@ -16,7 +17,7 @@ Route<dynamic> generateRoute(RouteSettings settings) {
   });
 
   return MaterialPageRoute(
-    builder: (_) => Scaffold(
-      body: Center(child: Text('The route name is: ${settings.name}')),
-    ));
+      builder: (_) => Scaffold(
+            body: Center(child: Text('The route name is: ${settings.name}')),
+          ));
 }

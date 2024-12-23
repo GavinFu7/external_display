@@ -19,7 +19,7 @@ class ExternalDisplay {
     // 監控 swift 傳回的資料
     StreamSubscription streamSubscription =
         _monitorStateListener.receiveBroadcastStream().listen((event) {
-      if (event is bool) { 
+      if (event is bool) {
         // 如果傳圖值是 Boolean, 是顯示器插拔的狀態
         if (_isPlugging != event) {
           _isPlugging = event;
@@ -76,8 +76,7 @@ class ExternalDisplay {
   }
 
   /// 發送參數到外部顯示頁面
-  Future<bool> sendParameters(
-      {required String action, dynamic value}) async {
+  Future<bool> sendParameters({required String action, dynamic value}) async {
     return await _displayController
         .invokeMethod('sendParameters', {"action": action, "value": value});
   }
