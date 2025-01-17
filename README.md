@@ -1,151 +1,166 @@
-# external_display
+# External Display
 
-Flutter 外掛程式支援透過有線或無線連接連接到外部顯示器。 並且 main view 和 external display view 之間互相傳送資料。
-
-The Flutter plug-in supports connecting to an external display through a wired or wireless connection. And the main view and the external display view can transfer data to each other.
+The Flutter plugin supports connecting to an external display via wired or wireless connections. The main view and the external display view can exchange data with each other.
 
 ## Getting Started
 
 ### iOS
 
-如果 `external_display` 需要使用套件，請在 `AppDelegate.swift` 中加入以下程式碼：
+If the `external_display` plugin is used, add the following code to `AppDelegate.swift`:
 
-If `external_display` requires the use packages, please add the following code to `AppDelegate.swift`:
-
-```
+```swift
 import external_display
 .
 .
-  override func application(
+override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
-  ) -> Bool {
+) -> Bool {
     ExternalDisplayPlugin.registerGeneratedPlugin = registerGeneratedPlugin
     .
     .
-  }
+}
 
-  func registerGeneratedPlugin(controller:FlutterViewController) {
+func registerGeneratedPlugin(controller: FlutterViewController) {
     GeneratedPluginRegistrant.register(with: controller)
-  }
-```
-
-example: <https://github.com/GavinFu7/external_display/blob/main/example/ios/Runner/AppDelegate.swift>
-
-### External display entry point `externalDisplayMain`
-```
-@pragma('vm:entry-point')
-void externalDisplayMain() {
 }
 ```
 
-### Create `externalDisplay` variables
+Example: <https://github.com/GavinFu7/external_display/blob/main/example/ios/Runner/AppDelegate.swift>
+
+### External Display Entry Point `externalDisplayMain`
+
+```dart
+@pragma('vm:entry-point')
+void externalDisplayMain() {}
 ```
+
+### Create `externalDisplay` Variable
+
+```dart
 ExternalDisplay externalDisplay = ExternalDisplay();
 ```
 
-### Monitor external monitor plugging and unplugging
-```
+### Monitor External Display Plugging and Unplugging
+
+```dart
 externalDisplay.addListener(onDisplayChange);
 ```
 
-### Cancel monitoring of external monitor
-```
+### Cancel External Display Monitoring
+
+```dart
 externalDisplay.removeListener(onDisplayChange);
 ```
 
-### Get the plugging status
-```
+### Get the Connection Status
+
+```dart
 externalDisplay.isPlugging
 ```
 
-### Get the external monitor resolution
-```
+### Get the External Display Resolution
+
+```dart
 externalDisplay.resolution
 ```
 
-### Connecting the monitor
-```
+### Connecting to the External Display
+
+```dart
 await externalDisplay.connect();
 ```
+
 or
-```
+
+```dart
 await externalDisplay.connect(routeName: name);
 ```
 
-## main view transfer parameters
+---
 
-### Add receive parameters listener
-Receive parameters from external view
-```
+## Main View: Transferring Parameters
+
+### Add a Listener to Receive Parameters from the External View
+
+```dart
 transferParameters.addListener(({required action, value}) {
   print(action);
   print(value);
 });
 ```
 
-Remove receive parameters listener
-```
+### Remove the Listener
+
+```dart
 transferParameters.removeListener(receive);
 ```
 
-### Transfer parameters to external view
-```
+### Transfer Parameters to the External View
+
+```dart
 await externalDisplay.sendParameters(action: actionName, value: parameters);
 ```
 
-### waiting external monitor receive parameters ready
+### Wait for External Monitor to Be Ready to Receive Parameters
 
-連接外接顯示器後，如果需要立即傳送參數，則需要使用 `waitingTransferParametersReady` 來確保外接顯示器可以接收參數。
+If you need to transfer parameters immediately after connecting to the external monitor, use `waitingTransferParametersReady` to ensure the external monitor is ready to receive data.
 
-After connecting an external monitor, if you need to transfer parameters immediately, you need to use `waitingTransferParametersReady` to ensure that the external monitor can receive the parameters.
-
-```
+```dart
 externalDisplay.connect();
 externalDisplay.waitingTransferParametersReady(
   onReady: () {
-    print("Transfer parameters ready, transfer data!");
+    print("Ready to transfer parameters, sending data!");
     externalDisplay.transferParameters(action: "action", value: "data");
   },
-  onError: () { // 等候超過時間 waiting timeout
-    print("Transfer parameters fail!");
+  onError: () { // Waiting timeout
+    print("Failed to transfer parameters!");
   }
 );
 ```
 
-## external view transfer parameters
+---
 
-### include `transfer_parameters.dart`
-```
+## External View: Transferring Parameters
+
+### Import `transfer_parameters.dart`
+
+```dart
 import 'package:external_display/transfer_parameters.dart';
 ```
 
-### Create `transferParameters` variables
-```
+### Create `transferParameters` Variable
+
+```dart
 TransferParameters transferParameters = TransferParameters();
 ```
 
-### Add receive parameters listener
-Receive parameters from main view
-```
+### Add a Listener to Receive Parameters from the Main View
+
+```dart
 transferParameters.addListener(({required action, value}) {
   print(action);
   print(value);
 });
 ```
 
-Remove receive parameters listener
-```
+### Remove the Listener
+
+```dart
 transferParameters.removeListener(receive);
 ```
 
-### Transfer parameters to main view
-```
+### Transfer Parameters to the Main View
+
+```dart
 await transferParameters.sendParameters(action: actionName, value: parameters);
 ```
 
-## example
-```
+---
+
+## Example
+
+```dart
 import 'package:flutter/material.dart';
 import 'package:external_display/external_display.dart';
 
@@ -156,7 +171,7 @@ void main() {
 @pragma('vm:entry-point')
 void externalDisplayMain() {
   runApp(const MaterialApp(
-    home: externalView(),
+    home: ExternalView(),
   ));
 }
 
@@ -166,19 +181,20 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const MaterialApp(
-      home: Home()
+      home: Home(),
     );
   }
 }
 
-class externalView extends StatelessWidget {
-  const externalView({super.key});
+class ExternalView extends StatelessWidget {
+  const ExternalView({super.key});
 
   @override
   Widget build(BuildContext context) {
     return const Scaffold(
       body: Center(
-        child: Text('This is external view.')),
+        child: Text('This is the external view.'),
+      ),
     );
   }
 }
@@ -192,20 +208,18 @@ class Home extends StatefulWidget {
 
 class _HomeState extends State<Home> {
   ExternalDisplay externalDisplay = ExternalDisplay();
-  String state = "Unplug";
+  String state = "Unplugged";
   String resolution = "";
 
-  onDisplayChange(connecting) {
-    if (connecting) {
-      setState(() {
-        state = "Plug";
-      });
-    } else {
-      setState(() {
-        state = "Unplug";
+  void onDisplayChange(bool connecting) {
+    setState(() {
+      if (connecting) {
+        state = "Plugged";
+      } else {
+        state = "Unplugged";
         resolution = "";
-      });
-    }
+      }
+    });
   }
 
   @override
@@ -227,7 +241,7 @@ class _HomeState extends State<Home> {
             Container(
               height: 100,
               alignment: Alignment.center,
-              child: Text("External Monitor is $state")
+              child: Text("External Monitor is $state"),
             ),
             Container(
               height: 100,
@@ -236,23 +250,24 @@ class _HomeState extends State<Home> {
                 style: ButtonStyle(
                   foregroundColor: MaterialStateProperty.all<Color>(Colors.blue),
                 ),
-                onPressed: () async { 
+                onPressed: () async {
                   await externalDisplay.connect();
                   setState(() {
-                    resolution = "width:${externalDisplay.resolution?.width}px, height:${externalDisplay.resolution?.height}px";
+                    resolution =
+                        "width:${externalDisplay.resolution?.width}px, height:${externalDisplay.resolution?.height}px";
                   });
                 },
-                child: const Text("Connect")
+                child: const Text("Connect"),
               ),
             ),
             Container(
               height: 100,
               alignment: Alignment.center,
-              child: Text(resolution)
-            )
-          ]
+              child: Text(resolution),
+            ),
+          ],
         ),
-      )
+      ),
     );
   }
 }
