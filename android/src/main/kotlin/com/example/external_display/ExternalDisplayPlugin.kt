@@ -62,7 +62,7 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
   override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {}
   override fun onAttachedToActivity(binding: ActivityPluginBinding) {
     context = binding.activity
-    displayManager = context?.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager;
+    displayManager = context.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
   }
   override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
     context = flutterPluginBinding.applicationContext
@@ -83,30 +83,32 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
     when (call.method) {
       // 連結外部顯示器
       "connect" -> {
-        if (displayManager.displays.size > 1 && context != null) {
+        try {
+          if (displayManager.displays.size <= 1) {
+            result.error("NO_EXTERNAL_DISPLAY", "No external display found", null)
+            return
+          }
           val displayId = displayManager.displays.last().displayId;
           val args = JSONObject("${call.arguments}")
           var routeName: String = args.getString("routeName")
           if (routeName == "null") {
             routeName = "externalView"
           }
-          val display = displayManager.getDisplay(displayId)
+          val display = displayManager.getDisplay(displayId) ?: run {
+            result.error("INVALID_DISPLAY", "Display not found", null)
+            return
+          }
           if (display != null) {
-            val flutterEngine : FlutterEngine
-            if (FlutterEngineCache.getInstance().get(routeName) == null) {
-              flutterEngine = FlutterEngine(context!!)
+            val flutterEngine: FlutterEngine by lazy {
+              FlutterEngine(context!!).apply {
+                navigationChannel.setInitialRoute(routeName)
 
-              flutterEngine.navigationChannel.setInitialRoute(routeName)
-
-              FlutterInjector.instance().flutterLoader().startInitialization(context!!)
-              val appBundlePath = FlutterInjector.instance().flutterLoader().findAppBundlePath()
-              val entrypoint = DartExecutor.DartEntrypoint(appBundlePath, "externalDisplayMain")
-              flutterEngine.dartExecutor.executeDartEntrypoint(entrypoint)
-              flutterEngine.lifecycleChannel.appIsResumed()
-
-              FlutterEngineCache.getInstance().put(routeName, flutterEngine)
-            } else {
-              flutterEngine = FlutterEngineCache.getInstance().get(routeName) as FlutterEngine
+                FlutterInjector.instance().flutterLoader().startInitialization(context!!)
+                val appBundlePath = FlutterInjector.instance().flutterLoader().findAppBundlePath()
+                val entrypoint = DartExecutor.DartEntrypoint(appBundlePath, "externalDisplayMain")
+                dartExecutor.executeDartEntrypoint(entrypoint)
+                lifecycleChannel.appIsResumed()
+              }
             }
 
             val resolution:Map<String, Double>
@@ -138,6 +140,8 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
             return
           }
           result.success(false)
+        } catch (e: Exception) {
+          result.error("CONNECTION_ERROR", e.message, null)
         }
       }
 
@@ -179,7 +183,11 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
     }
   }
 
-  // 主頁面 Flutter 的開始監控 swift 傳回的資料
+  /**
+   * 監控外部顯示器的連接狀態
+   * @param arguments 可選的參數
+   * @param eventSink 用於發送事件的通道
+   */
   override fun onListen(arguments: Any?, eventSink: EventChannel.EventSink)
   {
     mainViewEvents = eventSink
@@ -204,6 +212,9 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
   override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
     eventChannel.setStreamHandler(null)
     methodChannel.setMethodCallHandler(null)
+    displayManager.unregisterDisplayListener(displayListener)
+    mainViewEvents = null
+    externalViewEvents = null
   }
 }
 

@@ -29,41 +29,48 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
         switch call.method {
             // 連結外部顯示器
             case "connect":
-                if (UIScreen.screens.count > 1) {
-                    let args = call.arguments as? Dictionary<String, String>
-                    let routeName = args?["routeName"] ?? "externalView"
-                    let externalScreen = UIScreen.screens[1]
-                    let mode = externalScreen.availableModes.last
-                    externalScreen.currentMode = mode;
-                    var frame = CGRect.zero
-                    frame.size = mode!.size
-
-                    if (externalWindow == nil || routeName != router) {
-                        let flutterEngine = FlutterEngine()
-                        flutterEngine.run(withEntrypoint: "externalDisplayMain", initialRoute: routeName)
-                        externalViewController = FlutterViewController(engine: flutterEngine, nibName: nil, bundle: nil)
-                        ExternalDisplayPlugin.registerGeneratedPlugin?(externalViewController)
-                        
-                        ExternalDisplayPlugin.receiveParameters = FlutterEventChannel(name: "receiveParametersListener", binaryMessenger: externalViewController.binaryMessenger)
-                        ExternalDisplayPlugin.receiveParameters?.setStreamHandler(ExternalViewHandler())
-                        ExternalDisplayPlugin.sendParameters = FlutterMethodChannel(name: "sendParameters", binaryMessenger: externalViewController.binaryMessenger)
-                        flutterEngine.registrar(forPlugin: "")?.addMethodCallDelegate(ExternalDisplaySendParameters(), channel: ExternalDisplayPlugin.sendParameters!)
-                        
-                        externalViewController.view.frame = frame
-                        externalWindow = UIWindow(frame: frame)
-                    } else {
-                        externalViewController.view.frame = frame
-                        externalWindow?.frame = frame
-                        externalViewController.view.setNeedsLayout()
-                    }
-                    externalWindow?.rootViewController = externalViewController
-                    externalWindow?.screen = externalScreen
-                    externalWindow?.makeKeyAndVisible()
-
-                    result(["height":mode!.size.height, "width":mode!.size.width])
-                } else {
+                guard UIScreen.screens.count > 1 else {
                     result(false)
+                    return
                 }
+                guard let args = call.arguments as? [String: String] else {
+                    result(FlutterError(code: "INVALID_ARGUMENTS", message: "Invalid arguments", details: nil))
+                    return
+                }
+                let routeName = args["routeName"] ?? "externalView"
+                let externalScreen = UIScreen.screens[1]
+                let mode = externalScreen.availableModes.last
+                guard let mode = mode else {
+                    result(FlutterError(code: "INVALID_MODE", message: "No available display mode", details: nil))
+                    return
+                }
+                externalScreen.currentMode = mode;
+                var frame = CGRect.zero
+                frame.size = mode.size
+
+                if (externalWindow == nil || routeName != router) {
+                    let flutterEngine = FlutterEngine()
+                    flutterEngine.run(withEntrypoint: "externalDisplayMain", initialRoute: routeName)
+                    externalViewController = FlutterViewController(engine: flutterEngine, nibName: nil, bundle: nil)
+                    ExternalDisplayPlugin.registerGeneratedPlugin?(externalViewController)
+                    
+                    ExternalDisplayPlugin.receiveParameters = FlutterEventChannel(name: "receiveParametersListener", binaryMessenger: externalViewController.binaryMessenger)
+                    ExternalDisplayPlugin.receiveParameters?.setStreamHandler(ExternalViewHandler())
+                    ExternalDisplayPlugin.sendParameters = FlutterMethodChannel(name: "sendParameters", binaryMessenger: externalViewController.binaryMessenger)
+                    flutterEngine.registrar(forPlugin: "")?.addMethodCallDelegate(ExternalDisplaySendParameters(), channel: ExternalDisplayPlugin.sendParameters!)
+                    
+                    externalViewController.view.frame = frame
+                    externalWindow = UIWindow(frame: frame)
+                } else {
+                    externalViewController.view.frame = frame
+                    externalWindow?.frame = frame
+                    externalViewController.view.setNeedsLayout()
+                }
+                externalWindow?.rootViewController = externalViewController
+                externalWindow?.screen = externalScreen
+                externalWindow?.makeKeyAndVisible()
+
+                result(["height":mode.size.height, "width":mode.size.width])
             
             // 等候外部顯示器可以接收參數
             case "waitingTransferParametersReady":
@@ -115,7 +122,10 @@ public class MainViewHandler: NSObject, FlutterStreamHandler {
     var didConnectObserver:NSObjectProtocol?
     var didDisconnectObserver:NSObjectProtocol?
     
-    // 主頁面 Flutter 的開始監控 swift 傳回的資料
+    /// 監控外部顯示器的連接狀態
+    /// - Parameters:
+    ///   - arguments: 可選的參數
+    ///   - events: 用於發送事件的通道
     public func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
         ExternalDisplayPlugin.mainViewEvents = events
         if #available(iOS 14.0, *) {
