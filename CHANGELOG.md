@@ -1,24 +1,25 @@
+## 0.3.1
+
+### Fixed
+- Fixed an issue where popup dialogs from other Flutter plugins would incorrectly appear on external displays.
+
 ## 0.3.0
 
-加入 main view 和 external display view 之間互相傳送資的功能。
-
-Add the function of transmitting parameter to each other between main view and external display view.
+### Added
+- **Bidirectional parameter transfer** between the main view and external display view.
 
 ## 0.2.1
 
-當 iOS Apps 在 macOS 運行時，External Display 的畫面 會遮蓋 Apps 原本的畫面。所以當檢查到是 macOS 時，停用此套件。
-
-When iOS Apps are running on macOS, the External Display screen will cover the original screen of the Apps. So when macOS is detected, disable this package.
+### Fixed
+- Disabled the plugin when iOS apps run on macOS to prevent the external display from overlapping the primary app window.
 
 ## 0.2.0
 
-外接顯示器支援 FlutterPlugin
-
-External Display support FlutterPlugin
+### Added
+- Initial **Flutter plugin support** for external displays.
 
 ## 0.1.2
 
-新增了 `waitingTransferParametersReady` 功能。
-連接外接顯示器後，如果需要立即傳送參數，則需要使用 `waitingTransferParametersReady` 來確保外接顯示器可以接收參數。
-
-Added "waitingTransferParametersReady" function. After connecting an external monitor, if you need to transfer parameters immediately, you need to use "waitingTransferParametersReady" to ensure that the external monitor can receive the parameters.
+### Added
+- `waitingTransferParametersReady` function to ensure parameter delivery synchronization after connecting an external display.  
+  - Required when transferring parameters immediately upon connection.

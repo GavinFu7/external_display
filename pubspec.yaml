@@ -1,7 +1,7 @@
 name: external_display
 description: "The plug-in supports connecting to an external display, and the main view and external display view can transfer data between each other. 外掛程式支援連接外部顯示器，並且主視窗和外部顯示器視窗可互傳資料。"
 
-version: 0.3.0
+version: 0.3.1
 homepage: https://github.com/GavinFu7
 repository: https://github.com/GavinFu7/external_display
 

@@ -58,7 +58,7 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
                     }
                     externalWindow?.rootViewController = externalViewController
                     externalWindow?.screen = externalScreen
-                    externalWindow?.makeKeyAndVisible()
+                    externalWindow?.isHidden = false
 
                     result(["height":mode!.size.height, "width":mode!.size.width])
                 } else {
