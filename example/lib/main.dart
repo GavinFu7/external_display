@@ -28,7 +28,6 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> {
-  ExternalDisplay externalDisplay = ExternalDisplay();
   String state = "Unplug";
   String resolution = "";
 
@@ -63,6 +62,19 @@ class _HomeState extends State<Home> {
                 height: 100,
                 alignment: Alignment.center,
                 child: Text("External Monitor is $state")),
+            Container(
+              height: 100,
+              alignment: Alignment.center,
+              child: TextButton(
+                  style: ButtonStyle(
+                    foregroundColor:
+                        MaterialStateProperty.all<Color>(Colors.blue),
+                  ),
+                  onPressed: () async {
+                    await externalDisplay.createWindow();
+                  },
+                  child: const Text("Create window")),
+            ),  
             Container(
               height: 100,
               alignment: Alignment.center,

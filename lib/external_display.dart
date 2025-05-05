@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
 
+final externalDisplay = ExternalDisplay();
+
 /// 提供 'ExternalDisplay' method
 class ExternalDisplay {
   final Set<Function(dynamic)> _statusListeners = {};
@@ -43,6 +45,16 @@ class ExternalDisplay {
     // 停止監控 swift 傳回的資料
     streamSubscription.cancel();
   });
+
+  /// 建立外接顯示器頁面
+  Future createWindow() async {
+    await _displayController.invokeMethod('createWindow');
+  }
+
+  /// 銷毀外接顯示器頁面
+  Future destroyWindow() async {
+    await _displayController.invokeMethod('destroyWindow');
+  }
 
   /// 連接外接顯示器並取得分辨率
   Future connect({String? routeName}) async {
