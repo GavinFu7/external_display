@@ -27,6 +27,15 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
     // 接收主頁面的命令和參數
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         switch call.method {
+            case "getScreen":
+                let screens = UIScreen.screens
+                var screenInfos = [String]()
+                for i in 0..<screens.count {
+                    let screen = screens[i]
+                    screenInfos.append("\(i). [\(Int(screen.nativeBounds.width))x\(Int(screen.nativeBounds.height))]")
+                }
+                result(screenInfos)
+
             // 連結外部顯示器
             case "connect":
                 if (UIScreen.screens.count > 1) {

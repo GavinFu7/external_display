@@ -9,11 +9,11 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
     public static var registerGeneratedPlugin:((FlutterViewController)->Void)?
     public static var receiveParameters:FlutterEventChannel?
     public static var sendParameters:FlutterMethodChannel?
-    var router:String = ""
-    var externalViewController:FlutterViewController!
+    public static var externalWindow: NSWindow?
+    private var router:String = ""
+    private var externalViewController:FlutterViewController!
     
     public static func register(with registrar: FlutterPluginRegistrar) {
-    
         // 建立 Flutter EventChannel
         let onDisplayChange = FlutterEventChannel(name: "monitorStateListener", binaryMessenger: registrar.messenger)
         onDisplayChange.setStreamHandler(MainViewHandler())
@@ -26,29 +26,92 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
     // 接收主頁面的命令和參數
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         switch call.method {
+            case "getScreen":
+                let screens = NSScreen.screens
+                var screenInfos = [String]()
+                if #available(macOS 10.15, *) {
+                    for i in 0..<screens.count {
+                        let screen = screens[i]
+                        screenInfos.append("\(i). \(screen.localizedName) [\(screen.frame.width)x\(screen.frame.height)]")
+                    }
+                } else {
+                    for i in 0..<screens.count {
+                        let screen = screens[i]
+                        screenInfos.append("\(i). \(screen.frame.width)x\(screen.frame.height)")
+                    }
+                }
+                result(screenInfos)
+            
             // 連結外部顯示器
             case "createWindow":
-                if NSApp.windows.contains(where: { $0.frameAutosaveName == "External Window" }) {
-                    return result(false)
-                }
-            
                 let args = call.arguments as? Dictionary<String, String>
                 let title = args?["title"] ?? "External View"
-                
+                let fullscreen = args?["fullscreen"] ?? "false"
+                let windowWidth = args?["width"].flatMap(Int.init) ?? 1920
+                let windowHeight = args?["height"].flatMap(Int.init) ?? 1080
+                let screenIndex = args?["targetScreen"].flatMap(Int.init) ?? NSScreen.screens.count-1
+ 
                 DispatchQueue.main.async {
-                    let externalWindow = NSWindow(
-                        contentRect: NSRect(x: 0, y: 0, width: 1920, height: 1080),
-                        styleMask: [.titled, .closable, .miniaturizable],
-                        backing: .buffered,
-                        defer: false
-                    )
+                    var frame = NSScreen.screens[0].frame
+                    if (screenIndex > 0 || screenIndex < NSScreen.screens.count) {
+                        frame = NSScreen.screens[screenIndex].frame
+                        frame.origin.y = frame.maxY
+                    } else {
+                        frame = NSScreen.screens[NSScreen.screens.count-1].frame
+                        frame.origin.y = frame.maxY
+                    }
+
+                    if (ExternalDisplayPlugin.externalWindow == nil) {
+                        ExternalDisplayPlugin.externalWindow = NSWindow(
+                            contentRect: frame,
+                            styleMask: [.titled, .closable, .miniaturizable, .resizable, .borderless],
+                            backing: .buffered,
+                            defer: true,
+                            screen: NSScreen.screens[screenIndex]
+                        )
+                        
+                        if (self.externalViewController == nil) {
+                            let flutterEngine = FlutterEngine(name: "External Window", project: FlutterDartProject())
+                            flutterEngine.run(withEntrypoint: "externalDisplayMain")
+                            self.externalViewController = FlutterViewController(engine: flutterEngine, nibName: nil, bundle: nil)
+                            ExternalDisplayPlugin.registerGeneratedPlugin?(self.externalViewController)
+
+                            ExternalDisplayPlugin.receiveParameters = FlutterEventChannel(name: "receiveParametersListener", binaryMessenger: flutterEngine.binaryMessenger)
+                            ExternalDisplayPlugin.receiveParameters?.setStreamHandler(ExternalViewHandler())
+                            ExternalDisplayPlugin.sendParameters = FlutterMethodChannel(name: "sendParameters", binaryMessenger: flutterEngine.binaryMessenger)
+                            flutterEngine.registrar(forPlugin: "").addMethodCallDelegate(ExternalDisplaySendParameters(), channel: ExternalDisplayPlugin.sendParameters!)
+                        }
+                        
+                        ExternalDisplayPlugin.externalWindow?.title = title
+                        ExternalDisplayPlugin.externalWindow?.contentViewController = self.externalViewController
+                        ExternalDisplayPlugin.externalWindow?.isReleasedWhenClosed = false
+                        ExternalDisplayPlugin.externalWindow?.setFrameAutosaveName("External Window")
+                        ExternalDisplayPlugin.externalWindow?.delegate = self;
+                        
+                        NotificationCenter.default.addObserver(
+                            forName: NSWindow.willCloseNotification,
+                            object: nil, // 监听所有窗口
+                            queue: .main
+                        ) { notification in
+                            let window = notification.object as? NSWindow
+                            if (window != ExternalDisplayPlugin.externalWindow) {
+                                ExternalDisplayPlugin.externalWindow?.close()
+                            }
+                        }
+                    }
                     
-                    externalWindow.title = title
-                    externalWindow.isReleasedWhenClosed = false
-                    externalWindow.setFrameAutosaveName("External Window")
-                    externalWindow.orderFront(nil)
+                    if (title != "External View") {
+                        ExternalDisplayPlugin.externalWindow?.title = title
+                    }
+                        
+                    ExternalDisplayPlugin.externalWindow?.orderFront(nil)
+                    ExternalDisplayPlugin.externalWindow?.setFrameOrigin(frame.origin)
                     
-                    externalWindow.delegate = self;
+                    if (fullscreen == "true") {
+                        ExternalDisplayPlugin.externalWindow?.toggleFullScreen(nil)
+                    } else {
+                        ExternalDisplayPlugin.externalWindow?.setContentSize(NSSize(width: windowWidth, height: windowHeight))
+                    }
 
                     ExternalDisplayPlugin.mainViewEvents?(true)
                 }
@@ -56,42 +119,18 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
                 result(true)
             
             case "destroyWindow":
-                NSApp.windows.forEach { (win) in
-                    if win.frameAutosaveName=="External Window" {
-                        win.close()
-                        return result(true)
-                    }
+                if (ExternalDisplayPlugin.externalWindow != nil) {
+                    ExternalDisplayPlugin.externalWindow?.close()
+                    return result(true)
                 }
                 result(false)
             
             case "connect":
-                guard let externalWindow = NSApp.windows.first(where: {
-                    $0.frameAutosaveName == "External Window"
-                }) else {
-                    return result(false)
+                if (ExternalDisplayPlugin.externalWindow != nil) {
+                    let size = ExternalDisplayPlugin.externalWindow?.contentView?.frame.size ?? NSSize(width: 1920, height: 1080)
+                    result(["height":size.height, "width":size.width])
                 }
-            
-                let args = call.arguments as? Dictionary<String, String>
-                let routeName = args?["routeName"] ?? "externalView"
-                
-                if (externalViewController == nil) {
-                    let flutterEngine = FlutterEngine(name: routeName, project: FlutterDartProject())
-                    flutterEngine.run(withEntrypoint: "externalDisplayMain")
-                    externalViewController = FlutterViewController(engine: flutterEngine, nibName: nil, bundle: nil)
-                    ExternalDisplayPlugin.registerGeneratedPlugin?(externalViewController)
-
-                    ExternalDisplayPlugin.receiveParameters = FlutterEventChannel(name: "receiveParametersListener", binaryMessenger: flutterEngine.binaryMessenger)
-                    ExternalDisplayPlugin.receiveParameters?.setStreamHandler(ExternalViewHandler())
-                    ExternalDisplayPlugin.sendParameters = FlutterMethodChannel(name: "sendParameters", binaryMessenger: flutterEngine.binaryMessenger)
-                    flutterEngine.registrar(forPlugin: "").addMethodCallDelegate(ExternalDisplaySendParameters(), channel: ExternalDisplayPlugin.sendParameters!)
-                }
-            
-                let size = externalWindow.contentView?.frame.size ?? NSSize(width: 1920, height: 1080)
-            
-                externalWindow.contentViewController = externalViewController
-                externalWindow.setContentSize(size)
-            
-                result(["height":size.height, "width":size.width])
+                result(false)
             
             // 等候外部顯示器可以接收參數
             case "waitingTransferParametersReady":
@@ -127,6 +166,10 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
                 result(FlutterMethodNotImplemented)
         }
     }
+    
+    public func windowWillClose(_: Notification) {
+        ExternalDisplayPlugin.mainViewEvents?(false)
+    }
 }
 
 // 接收外部顯示頁面的命令和參數
@@ -161,11 +204,15 @@ public class MainViewHandler: NSObject, FlutterStreamHandler {
 public class ExternalViewHandler: NSObject, FlutterStreamHandler {
     // 外部顯示頁面 Flutter 的停止監控 swift 傳回的資料
     public func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
+        ExternalDisplayPlugin.externalViewEvents = events
+        ExternalDisplayPlugin.connectReturn?()
         return nil
     }
 
     // 外部顯示頁面 Flutter 的停止監控 swift 傳回的資料
     public func onCancel(withArguments arguments: Any?) -> FlutterError? {
+        ExternalDisplayPlugin.receiveParameters?.setStreamHandler(nil)
+        ExternalDisplayPlugin.externalViewEvents = nil
         return nil
     }
 }

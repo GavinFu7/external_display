@@ -28,6 +28,7 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> {
+  List<String> screens = [];
   String state = "Unplug";
   String resolution = "";
 
@@ -59,11 +60,29 @@ class _HomeState extends State<Home> {
           color: Colors.white,
           child: Column(children: [
             Container(
-                height: 100,
+                height: 70,
                 alignment: Alignment.center,
                 child: Text("External Monitor is $state")),
             Container(
-              height: 100,
+                height: 70,
+                alignment: Alignment.center,
+                child: Text(screens.join(", "))),
+            Container(
+              height: 70,
+              alignment: Alignment.center,
+              child: TextButton(
+                  style: ButtonStyle(
+                    foregroundColor:
+                        MaterialStateProperty.all<Color>(Colors.blue),
+                  ),
+                  onPressed: () async {
+                    screens = await externalDisplay.getScreen();
+                    setState(() {});
+                  },
+                  child: const Text("Get Screen")),
+            ),  
+            Container(
+              height: 70,
               alignment: Alignment.center,
               child: TextButton(
                   style: ButtonStyle(
@@ -76,7 +95,7 @@ class _HomeState extends State<Home> {
                   child: const Text("Create window")),
             ),  
             Container(
-              height: 100,
+              height: 70,
               alignment: Alignment.center,
               child: TextButton(
                   style: ButtonStyle(
@@ -100,7 +119,7 @@ class _HomeState extends State<Home> {
                   child: const Text("Connect")),
             ),
             Container(
-              height: 100,
+              height: 70,
               alignment: Alignment.center,
               child: TextButton(
                   style: ButtonStyle(
@@ -117,7 +136,7 @@ class _HomeState extends State<Home> {
                   child: const Text("Connect")),
             ),
             Container(
-              height: 100,
+              height: 70,
               alignment: Alignment.center,
               child: TextButton(
                   style: ButtonStyle(
@@ -131,7 +150,7 @@ class _HomeState extends State<Home> {
                   child: const Text("Transfer parameters")),
             ),
             Container(
-                height: 100,
+                height: 70,
                 alignment: Alignment.center,
                 child: Text(resolution))
           ]),

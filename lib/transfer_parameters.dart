@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
 
+/// 傳遞參數
+final transferParameters = TransferParameters();
+
 /// 提供 'TransferParameters' method.
 class TransferParameters {
   final Set<Function({required String action, dynamic value})> _listeners = {};

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
 
+/// 外接顯示器
 final externalDisplay = ExternalDisplay();
 
 /// 提供 'ExternalDisplay' method
@@ -40,18 +41,30 @@ class ExternalDisplay {
     _finalizer.attach(this, streamSubscription);
   }
 
-  // 如果 'ExternalDisplay' 不再可以使用
+  /// 如果 'ExternalDisplay' 不再可以使用
   static final _finalizer = Finalizer<StreamSubscription>((streamSubscription) {
     // 停止監控 swift 傳回的資料
     streamSubscription.cancel();
   });
 
-  /// 建立外接顯示器頁面
-  Future createWindow() async {
-    await _displayController.invokeMethod('createWindow');
+  /// 取得顯示器列表
+  Future<List<String>> getScreen() async {
+    final screens = await _displayController.invokeMethod('getScreen');
+    return screens.cast<String>(); 
   }
 
-  /// 銷毀外接顯示器頁面
+  /// 建立外接顯示器頁面, 只供 macOS 使用
+  Future createWindow({String? title, bool? fullscreen, int? width, int? height, int? targetScreen}) async {
+    await _displayController.invokeMethod('createWindow', {
+      "title": title,
+      "fullscreen": fullscreen,
+      "width": width,
+      "height": height,
+      "targetScreen": targetScreen
+    });
+  }
+
+  /// 銷毀外接顯示器頁面, 只供 macOS 使用
   Future destroyWindow() async {
     await _displayController.invokeMethod('destroyWindow');
   }
