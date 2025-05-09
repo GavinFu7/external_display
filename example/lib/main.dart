@@ -90,7 +90,7 @@ class _HomeState extends State<Home> {
                         MaterialStateProperty.all<Color>(Colors.blue),
                   ),
                   onPressed: () async {
-                    await externalDisplay.createWindow();
+                    await externalDisplay.createWindow(title: "Testing");
                   },
                   child: const Text("Create window")),
             ),  

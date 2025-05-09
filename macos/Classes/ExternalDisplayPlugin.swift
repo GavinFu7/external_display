@@ -44,12 +44,12 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
             
             // 連結外部顯示器
             case "createWindow":
-                let args = call.arguments as? Dictionary<String, String>
-                let title = args?["title"] ?? "External View"
-                let fullscreen = args?["fullscreen"] ?? "false"
-                let windowWidth = args?["width"].flatMap(Int.init) ?? 1920
-                let windowHeight = args?["height"].flatMap(Int.init) ?? 1080
-                let screenIndex = args?["targetScreen"].flatMap(Int.init) ?? NSScreen.screens.count-1
+                let args = call.arguments as? Dictionary<String, Any>
+                let title = args?["title"] as? String ?? "External View"
+                let fullscreen = args?["fullscreen"] as? Bool ?? false
+                let windowWidth = args?["width"] as? Int ?? 1920
+                let windowHeight = args?["height"] as? Int ?? 1080
+                let screenIndex = args?["targetScreen"] as? Int ?? NSScreen.screens.count-1
  
                 DispatchQueue.main.async {
                     var frame = NSScreen.screens[0].frame
@@ -107,7 +107,7 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
                     ExternalDisplayPlugin.externalWindow?.orderFront(nil)
                     ExternalDisplayPlugin.externalWindow?.setFrameOrigin(frame.origin)
                     
-                    if (fullscreen == "true") {
+                    if (fullscreen) {
                         ExternalDisplayPlugin.externalWindow?.toggleFullScreen(nil)
                     } else {
                         ExternalDisplayPlugin.externalWindow?.setContentSize(NSSize(width: windowWidth, height: windowHeight))
