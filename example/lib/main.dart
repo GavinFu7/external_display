@@ -73,7 +73,7 @@ class _HomeState extends State<Home> {
               child: TextButton(
                   style: ButtonStyle(
                     foregroundColor:
-                        MaterialStateProperty.all<Color>(Colors.blue),
+                        WidgetStateProperty.all<Color>(Colors.blue),
                   ),
                   onPressed: () async {
                     screens = await externalDisplay.getScreen();
@@ -87,7 +87,7 @@ class _HomeState extends State<Home> {
               child: TextButton(
                   style: ButtonStyle(
                     foregroundColor:
-                        MaterialStateProperty.all<Color>(Colors.blue),
+                        WidgetStateProperty.all<Color>(Colors.blue),
                   ),
                   onPressed: () async {
                     await externalDisplay.createWindow(title: "Testing");
@@ -100,7 +100,7 @@ class _HomeState extends State<Home> {
               child: TextButton(
                   style: ButtonStyle(
                     foregroundColor:
-                        MaterialStateProperty.all<Color>(Colors.blue),
+                        WidgetStateProperty.all<Color>(Colors.blue),
                   ),
                   onPressed: () async {
                     await externalDisplay.connect();
@@ -124,7 +124,7 @@ class _HomeState extends State<Home> {
               child: TextButton(
                   style: ButtonStyle(
                     foregroundColor:
-                        MaterialStateProperty.all<Color>(Colors.blue),
+                        WidgetStateProperty.all<Color>(Colors.blue),
                   ),
                   onPressed: () async {
                     await externalDisplay.connect(routeName: "Testing");
@@ -141,7 +141,7 @@ class _HomeState extends State<Home> {
               child: TextButton(
                   style: ButtonStyle(
                     foregroundColor:
-                        MaterialStateProperty.all<Color>(Colors.blue),
+                        WidgetStateProperty.all<Color>(Colors.blue),
                   ),
                   onPressed: () async {
                     await externalDisplay.sendParameters(
