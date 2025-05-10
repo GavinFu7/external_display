@@ -163,7 +163,7 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
                 }
             
             default:
-                result(FlutterMethodNotImplemented)
+                result(false)
         }
     }
     

@@ -106,7 +106,7 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
                 }
 
             default:
-                result(FlutterMethodNotImplemented)
+                result(false)
         }
     }
 }
