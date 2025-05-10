@@ -70,9 +70,9 @@ class ExternalDisplay {
   }
 
   /// 連接外接顯示器並取得分辨率
-  Future connect({String? routeName}) async {
+  Future connect({String? routeName, int? targetScreen}) async {
     final size = await _displayController
-        .invokeMethod('connect', {"routeName": routeName});
+        .invokeMethod('connect', {"routeName": routeName, "targetScreen": targetScreen});
     if (size != false) {
       _currentResolution = Size(size["width"], size["height"]);
     }
