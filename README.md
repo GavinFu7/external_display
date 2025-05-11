@@ -25,8 +25,31 @@ func registerGeneratedPlugin(controller: FlutterViewController) {
 
 Example: <https://github.com/GavinFu7/external_display/blob/main/example/macos/Runner/AppDelegate.swift>
 
+#### Create Window (macOS-only)
 
+```dart
+await externalDisplay.createWindow({String? title, bool? fullscreen, int? width, int? height, int? targetScreen})
+```
 
+**Parameters:**
+
+* `title`: Window title (displayed in the title bar)
+
+* `fullscreen`: Whether to display in fullscreen mode
+
+* `width`: Window width (in pixels)
+
+* `height`: Window height (in pixels)
+
+* `targetScreen`: Display screen index (which screen to show the window on)
+
+#### Destroy Window (macOS-only)
+
+```dart
+await externalDisplay.destroyWindow()
+```
+
+---
 
 ### iOS
 
