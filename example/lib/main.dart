@@ -80,7 +80,7 @@ class _HomeState extends State<Home> {
                     setState(() {});
                   },
                   child: const Text("Get Screen")),
-            ),  
+            ),
             Container(
               height: 70,
               alignment: Alignment.center,
@@ -93,7 +93,7 @@ class _HomeState extends State<Home> {
                     await externalDisplay.createWindow(title: "Testing");
                   },
                   child: const Text("Create window")),
-            ),  
+            ),
             Container(
               height: 70,
               alignment: Alignment.center,
