@@ -4,9 +4,33 @@ The Flutter plugin supports connecting to an external display via wired or wirel
 
 ## Getting Started
 
+### macOX
+
+If you need to use other Flutter plugins (e.g., `path_provider`, `shared_preferences`, etc.) in window created by the `external_display` plugin, you must add the following code to your `AppDelegate.swift`:
+
+```swift
+import external_display
+.
+.
+override func applicationDidFinishLaunching(_ aNotification: Notification) {
+    ExternalDisplayPlugin.registerGeneratedPlugin = registerGeneratedPlugin
+    .
+    .
+}
+
+func registerGeneratedPlugin(controller: FlutterViewController) {
+    RegisterGeneratedPlugins(registry: controller)
+}
+```
+
+Example: <https://github.com/GavinFu7/external_display/blob/main/example/macos/Runner/AppDelegate.swift>
+
+
+
+
 ### iOS
 
-If the `external_display` plugin is used, add the following code to `AppDelegate.swift`:
+If you need to use other Flutter plugins (e.g., `path_provider`, `shared_preferences`, etc.) in view created by the `external_display` plugin, you must add the following code to your `AppDelegate.swift`:
 
 ```swift
 import external_display
@@ -33,12 +57,6 @@ Example: <https://github.com/GavinFu7/external_display/blob/main/example/ios/Run
 ```dart
 @pragma('vm:entry-point')
 void externalDisplayMain() {}
-```
-
-### Create `externalDisplay` Variable
-
-```dart
-ExternalDisplay externalDisplay = ExternalDisplay();
 ```
 
 ### Monitor External Display Plugging and Unplugging
@@ -68,14 +86,17 @@ externalDisplay.resolution
 ### Connecting to the External Display
 
 ```dart
-await externalDisplay.connect();
+await externalDisplay.connect({String? routeName, int? targetScreen});
 ```
 
-or
+**Parameters:**
 
-```dart
-await externalDisplay.connect(routeName: name);
-```
+* `routeName`: Works with Flutter's MaterialApp `routes` property to define which route should launch the application.
+> ⚠️ Not recommended for use (this parameter has no effect on macOS).
+
+* `targetScreen`: Specifies which display screen to use (defaults to the last connected screen).
+> ⚠️ Android-only parameter (has no effect on other platforms).
+
 
 ---
 
@@ -127,12 +148,6 @@ externalDisplay.waitingTransferParametersReady(
 
 ```dart
 import 'package:external_display/transfer_parameters.dart';
-```
-
-### Create `transferParameters` Variable
-
-```dart
-TransferParameters transferParameters = TransferParameters();
 ```
 
 ### Add a Listener to Receive Parameters from the Main View
