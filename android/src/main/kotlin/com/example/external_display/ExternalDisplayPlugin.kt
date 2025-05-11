@@ -81,16 +81,31 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
   // 接收主頁面的命令和參數
   override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
     when (call.method) {
+      // 取得外部顯示器列表
+      "getScreen" -> {
+        val screens = displayManager.displays.map { display ->
+          "${display.displayId}. ${display.name} [${display.width}x${display.height}]"
+        }.toList()
+        result.success(screens)
+      }
+
       // 連結外部顯示器
       "connect" -> {
         if (displayManager.displays.size > 1 && context != null) {
-          val displayId = displayManager.displays.last().displayId;
           val args = JSONObject("${call.arguments}")
           var routeName: String = args.getString("routeName")
+          var displayId: Int = args.getInt("targetScreen")
           if (routeName == "null") {
             routeName = "externalView"
           }
-          val display = displayManager.getDisplay(displayId)
+          var display: Display? = null
+          if (displayId > 0) {
+            display = displayManager.getDisplay(displayId)
+          }
+          if (display == null) {
+            displayId = displayManager.displays.last().displayId
+            display = displayManager.getDisplay(displayManager.displays.last().displayId)
+          }
           if (display != null) {
             val flutterEngine : FlutterEngine
             if (FlutterEngineCache.getInstance().get(routeName) == null) {
@@ -174,7 +189,7 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
       }
 
       else -> {
-        result.notImplemented()
+        result.success(false)
       }
     }
   }

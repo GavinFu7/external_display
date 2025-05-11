@@ -1,3 +1,16 @@
+## 0.4.0
+
+### Added
+- **macOS support**: Now uses `createWindow` to create new windows for display projection on macOS.
+
+### Changed
+- **Simplified initialization**:  
+  No longer need to explicitly declare:
+  ```dart
+  ExternalDisplay externalDisplay = ExternalDisplay();
+  TransferParameters transferParameters = TransferParameters();
+  ```
+
 ## 0.3.1
 
 ### Fixed

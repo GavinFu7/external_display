@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
 
+/// 外接顯示器
+final externalDisplay = ExternalDisplay();
+
 /// 提供 'ExternalDisplay' method
 class ExternalDisplay {
   final Set<Function(dynamic)> _statusListeners = {};
@@ -38,16 +41,38 @@ class ExternalDisplay {
     _finalizer.attach(this, streamSubscription);
   }
 
-  // 如果 'ExternalDisplay' 不再可以使用
+  /// 如果 'ExternalDisplay' 不再可以使用
   static final _finalizer = Finalizer<StreamSubscription>((streamSubscription) {
     // 停止監控 swift 傳回的資料
     streamSubscription.cancel();
   });
 
+  /// 取得顯示器列表
+  Future<List<String>> getScreen() async {
+    final screens = await _displayController.invokeMethod('getScreen');
+    return screens.cast<String>(); 
+  }
+
+  /// 建立外接顯示器頁面, 只供 macOS 使用
+  Future createWindow({String? title, bool? fullscreen, int? width, int? height, int? targetScreen}) async {
+    await _displayController.invokeMethod('createWindow', {
+      "title": title,
+      "fullscreen": fullscreen,
+      "width": width,
+      "height": height,
+      "targetScreen": targetScreen
+    });
+  }
+
+  /// 銷毀外接顯示器頁面, 只供 macOS 使用
+  Future destroyWindow() async {
+    await _displayController.invokeMethod('destroyWindow');
+  }
+
   /// 連接外接顯示器並取得分辨率
-  Future connect({String? routeName}) async {
+  Future connect({String? routeName, int? targetScreen}) async {
     final size = await _displayController
-        .invokeMethod('connect', {"routeName": routeName});
+        .invokeMethod('connect', {"routeName": routeName, "targetScreen": targetScreen});
     if (size != false) {
       _currentResolution = Size(size["width"], size["height"]);
     }
