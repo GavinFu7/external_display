@@ -4,7 +4,7 @@ The Flutter plugin supports connecting to an external display via wired or wirel
 
 ## Getting Started
 
-### macOX
+### macOS
 
 If you need to use other Flutter plugins (e.g., `path_provider`, `shared_preferences`, etc.) in window created by the `external_display` plugin, you must add the following code to your `AppDelegate.swift`:
 
