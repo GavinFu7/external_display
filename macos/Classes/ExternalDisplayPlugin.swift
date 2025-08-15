@@ -10,8 +10,6 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
     public static var receiveParameters:FlutterEventChannel?
     public static var sendParameters:FlutterMethodChannel?
     public static var externalWindow: NSWindow?
-    private var router:String = ""
-    private var externalViewController:FlutterViewController!
     
     public static func register(with registrar: FlutterPluginRegistrar) {
         // 建立 Flutter EventChannel
@@ -69,21 +67,19 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
                             defer: true,
                             screen: NSScreen.screens[screenIndex]
                         )
-                        
-                        if (self.externalViewController == nil) {
-                            let flutterEngine = FlutterEngine(name: "External Window", project: FlutterDartProject())
-                            flutterEngine.run(withEntrypoint: "externalDisplayMain")
-                            self.externalViewController = FlutterViewController(engine: flutterEngine, nibName: nil, bundle: nil)
-                            ExternalDisplayPlugin.registerGeneratedPlugin?(self.externalViewController)
 
-                            ExternalDisplayPlugin.receiveParameters = FlutterEventChannel(name: "receiveParametersListener", binaryMessenger: flutterEngine.binaryMessenger)
-                            ExternalDisplayPlugin.receiveParameters?.setStreamHandler(ExternalViewHandler())
-                            ExternalDisplayPlugin.sendParameters = FlutterMethodChannel(name: "sendParameters", binaryMessenger: flutterEngine.binaryMessenger)
-                            flutterEngine.registrar(forPlugin: "").addMethodCallDelegate(ExternalDisplaySendParameters(), channel: ExternalDisplayPlugin.sendParameters!)
-                        }
-                        
+                        let flutterEngine = FlutterEngine(name: "External Window", project: FlutterDartProject())
+                        flutterEngine.run(withEntrypoint: "externalDisplayMain")
+                        let externalViewController = FlutterViewController(engine: flutterEngine, nibName: nil, bundle: nil)
+                        ExternalDisplayPlugin.registerGeneratedPlugin?(externalViewController)
+
+                        ExternalDisplayPlugin.receiveParameters = FlutterEventChannel(name: "receiveParametersListener", binaryMessenger: flutterEngine.binaryMessenger)
+                        ExternalDisplayPlugin.receiveParameters?.setStreamHandler(ExternalViewHandler())
+                        ExternalDisplayPlugin.sendParameters = FlutterMethodChannel(name: "sendParameters", binaryMessenger: flutterEngine.binaryMessenger)
+                        flutterEngine.registrar(forPlugin: "").addMethodCallDelegate(ExternalDisplaySendParameters(), channel: ExternalDisplayPlugin.sendParameters!)
+
                         ExternalDisplayPlugin.externalWindow?.title = title
-                        ExternalDisplayPlugin.externalWindow?.contentViewController = self.externalViewController
+                        ExternalDisplayPlugin.externalWindow?.contentViewController = externalViewController
                         ExternalDisplayPlugin.externalWindow?.isReleasedWhenClosed = false
                         ExternalDisplayPlugin.externalWindow?.setFrameAutosaveName("External Window")
                         ExternalDisplayPlugin.externalWindow?.delegate = self;

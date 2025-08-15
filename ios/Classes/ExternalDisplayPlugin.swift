@@ -9,9 +9,7 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
     public static var registerGeneratedPlugin:((FlutterViewController)->Void)?
     public static var receiveParameters:FlutterEventChannel?
     public static var sendParameters:FlutterMethodChannel?
-    var externalWindow:UIWindow?
-    var router:String = ""
-    var externalViewController:FlutterViewController!
+    public static var externalWindow:UIWindow?
 
     // 初始化
     public static func register(with registrar: FlutterPluginRegistrar) {
@@ -47,41 +45,35 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
                     var frame = CGRect.zero
                     frame.size = mode!.size
 
-                    if (externalWindow == nil || routeName != router) {
-                        router = routeName
-                        let flutterEngine = FlutterEngine()
-                        flutterEngine.run(withEntrypoint: "externalDisplayMain", initialRoute: routeName)
-                        externalViewController = FlutterViewController(engine: flutterEngine, nibName: nil, bundle: nil)
-                        ExternalDisplayPlugin.registerGeneratedPlugin?(externalViewController)
-                        
-                        ExternalDisplayPlugin.receiveParameters = FlutterEventChannel(name: "receiveParametersListener", binaryMessenger: flutterEngine.binaryMessenger)
-                        ExternalDisplayPlugin.receiveParameters?.setStreamHandler(ExternalViewHandler())
-                        ExternalDisplayPlugin.sendParameters = FlutterMethodChannel(name: "sendParameters", binaryMessenger: flutterEngine.binaryMessenger)
-                        flutterEngine.registrar(forPlugin: "")?.addMethodCallDelegate(ExternalDisplaySendParameters(), channel: ExternalDisplayPlugin.sendParameters!)
-                        
-                        externalViewController.view.frame = frame
-                        externalWindow = UIWindow(frame: frame)
-                    } else {
-                        externalViewController.view.frame = frame
-                        externalWindow?.frame = frame
-                        externalViewController.view.setNeedsLayout()
-                    }
-                    externalWindow?.rootViewController = externalViewController
-                    externalWindow?.screen = externalScreen
-                    externalWindow?.isHidden = false
+                    let flutterEngine = FlutterEngine()
+                    flutterEngine.run(withEntrypoint: "externalDisplayMain", initialRoute: routeName)
+                    let externalViewController = FlutterViewController(engine: flutterEngine, nibName: nil, bundle: nil)
+                    ExternalDisplayPlugin.registerGeneratedPlugin?(externalViewController)
+
+                    ExternalDisplayPlugin.receiveParameters = FlutterEventChannel(name: "receiveParametersListener", binaryMessenger: flutterEngine.binaryMessenger)
+                    ExternalDisplayPlugin.receiveParameters?.setStreamHandler(ExternalViewHandler())
+                    ExternalDisplayPlugin.sendParameters = FlutterMethodChannel(name: "sendParameters", binaryMessenger: flutterEngine.binaryMessenger)
+                    flutterEngine.registrar(forPlugin: "")?.addMethodCallDelegate(ExternalDisplaySendParameters(), channel: ExternalDisplayPlugin.sendParameters!)
+
+                    externalViewController.view.frame = frame
+                    ExternalDisplayPlugin.externalWindow = UIWindow(frame: frame)
+                    ExternalDisplayPlugin.externalWindow?.rootViewController = externalViewController
+
+                    ExternalDisplayPlugin.externalWindow?.screen = externalScreen
+                    ExternalDisplayPlugin.externalWindow?.isHidden = false
 
                     result(["height":mode!.size.height, "width":mode!.size.width])
                 } else {
                     result(false)
                 }
-            
+
             // 等候外部顯示器可以接收參數
             case "waitingTransferParametersReady":
                 let sendFail = DispatchWorkItem(block: {
                     result(false)
                     ExternalDisplayPlugin.connectReturn = nil
                 })
-                
+
                 func returnResolution() -> Void {
                     sendFail.cancel()
                     result(true)
@@ -89,13 +81,12 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
                 }
                 ExternalDisplayPlugin.connectReturn = returnResolution
 
-                
                 if (ExternalDisplayPlugin.externalViewEvents != nil) {
                     ExternalDisplayPlugin.connectReturn?()
                 } else {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 10.0, execute: sendFail)
                 }
-            
+
             // 發送參數到外部顯示頁面
             case "sendParameters":
                 if (ExternalDisplayPlugin.externalViewEvents != nil) {
@@ -139,7 +130,7 @@ public class MainViewHandler: NSObject, FlutterStreamHandler {
         if (UIScreen.screens.count > 1) {
             events(true)
         }
-        
+
         // 開始監控插入外部顯示器
         didConnectObserver = NotificationCenter.default.addObserver(forName:UIScreen.didConnectNotification, object:nil, queue:nil) {_ in
             events(true)
@@ -147,6 +138,8 @@ public class MainViewHandler: NSObject, FlutterStreamHandler {
         
         // 開始監控拔出外部顯示器
         didDisconnectObserver = NotificationCenter.default.addObserver(forName:UIScreen.didDisconnectNotification, object:nil, queue: nil) {_ in
+            ExternalDisplayPlugin.externalWindow?.removeFromSuperview()
+            ExternalDisplayPlugin.externalWindow = nil
             events(false)
         }
         return nil
@@ -155,11 +148,12 @@ public class MainViewHandler: NSObject, FlutterStreamHandler {
     // 主頁面 Flutter 的停止監控 swift 傳回的資料
     public func onCancel(withArguments arguments: Any?) -> FlutterError? {
         // 停止監控插入和拔出外部顯示器
-        NotificationCenter.default.removeObserver(didConnectObserver)
-        NotificationCenter.default.removeObserver(didDisconnectObserver)
+        NotificationCenter.default.removeObserver(didConnectObserver!)
+        NotificationCenter.default.removeObserver(didDisconnectObserver!)
+
         // 取消 swift 傳回的資料功能
         ExternalDisplayPlugin.mainViewEvents = nil
-        
+
         return nil
     }
 }
