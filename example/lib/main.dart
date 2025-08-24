@@ -4,7 +4,6 @@ import 'package:external_display/external_display.dart';
 import 'package:external_display/transfer_parameters.dart';
 import 'package:path_provider/path_provider.dart';
 
-
 void main() {
   runApp(const MyApp());
 }
@@ -167,9 +166,7 @@ class _HomeState extends State<Home> {
   }
 }
 
-
-
-// external display view 
+// external display view
 Route<dynamic> generateRoute(RouteSettings settings) {
   TransferParameters transferParameters = TransferParameters();
   transferParameters.addListener(({required action, value}) {
