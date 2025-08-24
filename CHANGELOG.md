@@ -1,3 +1,8 @@
+## 0.4.2
+
+### Fixed
+- Fixed abnormal display resolution issues after repeatedly connecting/disconnecting different external displays.
+
 ## 0.4.0
 
 ### Added
