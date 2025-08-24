@@ -1,10 +1,10 @@
 name: external_display
 description: "The Flutter plugin supports connecting to an external display via wired or wireless connections. The main view and the external display view can exchange data with each other."
 
-version: 0.4.1
+version: 0.4.2
 homepage: https://github.com/GavinFu7
 repository: https://github.com/GavinFu7/external_display
-
+    
 environment:
   sdk: '>=3.3.4 <4.0.0'
   flutter: '>=3.3.0'
@@ -80,3 +80,7 @@ topics:
   - secondary-display
   - screen-mirroring
   - display-manager
+
+screenshots:
+  - description: The external display plugin example.
+    path: example/screenshot.jpg

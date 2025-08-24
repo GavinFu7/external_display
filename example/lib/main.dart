@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:external_display/external_display.dart';
-import 'external_view.dart';
+
+import 'package:external_display/transfer_parameters.dart';
+import 'package:path_provider/path_provider.dart';
+
 
 void main() {
   runApp(const MyApp());
@@ -44,10 +47,16 @@ class _HomeState extends State<Home> {
     }
   }
 
+  receiveParameterListener({required String action, dynamic value}) {
+    print("Main View receive parameter action: $action");
+    print("Main View receive parameter value: $value");
+  }
+
   @override
   void initState() {
     super.initState();
     externalDisplay.addStatusListener(onDisplayChange);
+    externalDisplay.addReceiveParameterListener(receiveParameterListener);
   }
 
   @override
@@ -156,4 +165,27 @@ class _HomeState extends State<Home> {
           ]),
         ));
   }
+}
+
+
+
+// external display view 
+Route<dynamic> generateRoute(RouteSettings settings) {
+  TransferParameters transferParameters = TransferParameters();
+  transferParameters.addListener(({required action, value}) {
+    print("External View receive parameter action: $action");
+    print("External View receive parameter value: $value");
+
+    transferParameters.sendParameters(
+        action: "sendParameters", value: "form external view");
+  });
+
+  getApplicationDocumentsDirectory().then((path) {
+    print(path.path);
+  });
+
+  return MaterialPageRoute(
+      builder: (_) => Scaffold(
+            body: Center(child: Text('The route name is: ${settings.name}')),
+          ));
 }
