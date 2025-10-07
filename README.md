@@ -200,30 +200,38 @@ await transferParameters.sendParameters(action: actionName, value: parameters);
 
 ```dart
 import 'package:flutter/material.dart';
+// Import external display package
 import 'package:external_display/external_display.dart';
 
 void main() {
+  // Launch the main application
   runApp(const MyApp());
 }
 
+// This annotation tells Flutter that this is the entry point for external display
 @pragma('vm:entry-point')
 void externalDisplayMain() {
+  // Create a separate MaterialApp for external display
   runApp(const MaterialApp(
+    // Set the home page for external display
     home: ExternalView(),
   ));
 }
 
+// Main application component
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return const MaterialApp(
+      // Set the home page of the application
       home: Home(),
     );
   }
 }
 
+// External display view component
 class ExternalView extends StatelessWidget {
   const ExternalView({super.key});
 
@@ -231,12 +239,14 @@ class ExternalView extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Scaffold(
       body: Center(
+        // Text displayed on external display
         child: Text('This is the external view.'),
       ),
     );
   }
 }
 
+// Home page component
 class Home extends StatefulWidget {
   const Home({super.key});
 
@@ -244,17 +254,25 @@ class Home extends StatefulWidget {
   State<Home> createState() => _HomeState();
 }
 
+// Home page state class
 class _HomeState extends State<Home> {
+  // Create external display instance
   ExternalDisplay externalDisplay = ExternalDisplay();
+  // External display connection status
   String state = "Unplugged";
+  // External display resolution information
   String resolution = "";
 
+  // Callback function when external display connection status changes
   void onDisplayChange(bool connecting) {
     setState(() {
       if (connecting) {
+        // Update to connected status
         state = "Plugged";
       } else {
+        // Update to disconnected status
         state = "Unplugged";
+        // Clear resolution information
         resolution = "";
       }
     });
@@ -263,6 +281,7 @@ class _HomeState extends State<Home> {
   @override
   void initState() {
     super.initState();
+    // Add display status change listener
     externalDisplay.addListener(onDisplayChange);
   }
 
@@ -270,37 +289,47 @@ class _HomeState extends State<Home> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        // App bar title
         title: const Text('External Display Example'),
       ),
       body: Container(
+        // Set background color to white
         color: Colors.white,
         child: Column(
           children: [
+            // Container for displaying external display status
             Container(
               height: 100,
               alignment: Alignment.center,
+              // Display current connection stat
               child: Text("External Monitor is $state"),
             ),
+            // Connect button container
             Container(
               height: 100,
               alignment: Alignment.center,
               child: TextButton(
                 style: ButtonStyle(
+                   // Button text color
                   foregroundColor: MaterialStateProperty.all<Color>(Colors.blue),
                 ),
                 onPressed: () async {
+                  // Connect to external display
                   await externalDisplay.connect();
                   setState(() {
+                    // Update resolution information
                     resolution =
                         "width:${externalDisplay.resolution?.width}px, height:${externalDisplay.resolution?.height}px";
                   });
                 },
-                child: const Text("Connect"),
+                child: const Text("Connect"), // Button text
               ),
             ),
+            // Container for displaying resolution informatio
             Container(
               height: 100,
               alignment: Alignment.center,
+              // Display external display resolution
               child: Text(resolution),
             ),
           ],
