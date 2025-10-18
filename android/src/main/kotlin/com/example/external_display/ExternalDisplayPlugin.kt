@@ -94,12 +94,12 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
         if (displayManager.displays.size > 1 && context != null) {
           val args = JSONObject("${call.arguments}")
           var routeName: String = args.getString("routeName")
-          var displayId: Int = args.getInt("targetScreen")
+          var displayId: Int? = args.getInt("targetScreen")
           if (routeName == "null") {
             routeName = "externalView"
           }
           var display: Display? = null
-          if (displayId > 0) {
+          if (displayId != null && displayId > 0) {
             display = displayManager.getDisplay(displayId)
           }
           if (display == null) {
@@ -118,6 +118,12 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
               val entrypoint = DartExecutor.DartEntrypoint(appBundlePath, "externalDisplayMain")
               flutterEngine.dartExecutor.executeDartEntrypoint(entrypoint)
               flutterEngine.lifecycleChannel.appIsResumed()
+
+              flutterEngine.platformViewsController.attach(
+                context,
+                flutterEngine.renderer,
+                flutterEngine.dartExecutor
+              )
 
               FlutterEngineCache.getInstance().put(routeName, flutterEngine)
             } else {
