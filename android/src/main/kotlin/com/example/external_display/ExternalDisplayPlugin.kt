@@ -42,6 +42,8 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
   private lateinit var eventChannel : EventChannel
   private lateinit var context: Context
   private lateinit var displayManager : DisplayManager
+  private val activePresentations = mutableMapOf<String, Presentation>()
+  private val activeEngines = mutableMapOf<String, FlutterEngine>()
 
   // 處理監控插入和拔出外部顯示器
   private val displayListener = object : DisplayManager.DisplayListener {
@@ -93,18 +95,15 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
       "connect" -> {
         if (displayManager.displays.size > 1 && context != null) {
           val args = JSONObject("${call.arguments}")
-          var routeName: String = args.getString("routeName")
-          var displayId: Int? = args.getInt("targetScreen")
-          if (routeName == "null") {
-            routeName = "externalView"
-          }
+          var routeName: String = args.optString("routeName", "externalView")
+          var displayId: Int? = args.optInt("targetScreen", -1)
           var display: Display? = null
           if (displayId != null && displayId > 0) {
             display = displayManager.getDisplay(displayId)
           }
-          if (display == null) {
-            displayId = displayManager.displays.last().displayId
-            display = displayManager.getDisplay(displayManager.displays.last().displayId)
+          if (display == null && displayManager.displays.isNotEmpty()) {
+            display = displayManager.displays.last()
+            displayId = display.displayId
           }
           if (display != null) {
             val flutterEngine : FlutterEngine
@@ -126,6 +125,7 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
               )
 
               FlutterEngineCache.getInstance().put(routeName, flutterEngine)
+              activeEngines[routeName] = flutterEngine
             } else {
               flutterEngine = FlutterEngineCache.getInstance().get(routeName) as FlutterEngine
             }
@@ -154,6 +154,7 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
             val presentation = Presentation(context, display)
             presentation.setContentView(view)
             presentation.show()
+            activePresentations[routeName] = presentation
 
             result.success(resolution)
             return
@@ -161,7 +162,21 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
           result.success(false)
         }
       }
+      
+      "disconnect" -> {
+        val args = JSONObject("${call.arguments}")
+        val routeName = args.optString("routeName", "externalView")
 
+        val presentation = activePresentations.remove(routeName)
+        presentation?.dismiss()
+
+        val engine = activeEngines.remove(routeName)
+        if (engine != null) {
+          engine.destroy()
+          FlutterEngineCache.getInstance().remove(routeName)
+        }
+        result.success(true)
+      }
       // 等候外部顯示器可以接收參數
       "waitingTransferParametersReady" -> {
         val handler = Handler(Looper.getMainLooper())
