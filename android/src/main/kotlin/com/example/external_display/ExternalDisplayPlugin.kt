@@ -40,7 +40,7 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
 
   private lateinit var methodChannel : MethodChannel
   private lateinit var eventChannel : EventChannel
-  private lateinit var context: Context
+  private var context: Context? = null
   private lateinit var displayManager : DisplayManager
 
   // 處理監控插入和拔出外部顯示器
@@ -62,10 +62,12 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
   override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {}
   override fun onAttachedToActivity(binding: ActivityPluginBinding) {
     context = binding.activity
-    displayManager = context?.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager;
+    displayManager = binding.activity.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
   }
   override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
-    context = flutterPluginBinding.applicationContext
+    if (context == null) {
+      context = flutterPluginBinding.applicationContext
+    }
     displayManager = flutterPluginBinding.applicationContext.getSystemService(Context.DISPLAY_SERVICE) as
               DisplayManager
 
@@ -80,6 +82,7 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
 
   // 接收主頁面的命令和參數
   override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
+    Log.d(TAG, "onMethodCall called with method: ${call.method}")
     when (call.method) {
       // 取得外部顯示器列表
       "getScreen" -> {
@@ -91,10 +94,12 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
 
       // 連結外部顯示器
       "connect" -> {
+        Log.d(TAG, "connect method called. displays size: ${displayManager.displays.size}, context: $context")
+        
         if (displayManager.displays.size > 1 && context != null) {
-          val args = JSONObject("${call.arguments}")
-          var routeName: String = args.getString("routeName")
-          var displayId: Int = args.getInt("targetScreen")
+          val args = call.arguments as? Map<String, Any> ?: mapOf()
+          var routeName: String = args["routeName"] as? String ?: "externalView"
+          var displayId: Int = args["targetScreen"] as? Int ?: 0
           if (routeName == "null") {
             routeName = "externalView"
           }
@@ -136,22 +141,24 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
             val sendParameters = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "sendParameters")
             sendParameters.setMethodCallHandler(ExternalViewHandler(this))
 
-            val flutterView = FlutterView(context)
+            val flutterView = FlutterView(context!!)
             flutterView.attachToFlutterEngine(flutterEngine)
 
-            val view = FrameLayout(context)
+            val view = FrameLayout(context!!)
             view.addView(flutterView, FrameLayout.LayoutParams(
               ViewGroup.LayoutParams.MATCH_PARENT,
               ViewGroup.LayoutParams.MATCH_PARENT
             ))
 
-            val presentation = Presentation(context, display)
+            val presentation = Presentation(context!!, display)
             presentation.setContentView(view)
             presentation.show()
 
             result.success(resolution)
             return
           }
+          result.success(false)
+        } else {
           result.success(false)
         }
       }
