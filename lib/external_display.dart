@@ -83,6 +83,12 @@ class ExternalDisplay {
     }
   }
 
+  /// 斷開外接顯示器
+  Future disconnect({String? routeName}) async {
+    await _displayController
+        .invokeMethod('disconnect', {"routeName": routeName});
+  }
+
   /// 等候外部顯示器可以接收參數
   Future waitingTransferParametersReady(
       {required Function() onReady, Function()? onError}) async {
