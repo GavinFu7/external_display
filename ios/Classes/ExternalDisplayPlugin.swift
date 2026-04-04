@@ -67,6 +67,15 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
                     result(false)
                 }
 
+            case "disconnect":
+                if (UIScreen.screens.count > 1) {
+                    ExternalDisplayPlugin.externalWindow?.removeFromSuperview()
+                    ExternalDisplayPlugin.externalWindow = nil
+                    result(true)
+                } else {
+                    result(false)
+                }
+
             // 等候外部顯示器可以接收參數
             case "waitingTransferParametersReady":
                 let sendFail = DispatchWorkItem(block: {

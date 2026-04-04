@@ -177,6 +177,7 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
         }
         result.success(true)
       }
+
       // 等候外部顯示器可以接收參數
       "waitingTransferParametersReady" -> {
         val handler = Handler(Looper.getMainLooper())
