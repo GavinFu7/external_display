@@ -16,6 +16,24 @@
 
 namespace external_display {
 
+// Stub stream handler for monitorStateListener
+class MonitorStateStreamHandler : public flutter::StreamHandler<flutter::EncodableValue> {
+ public:
+  std::unique_ptr<flutter::StreamHandlerError<flutter::EncodableValue>>
+  OnListenInternal(
+      const flutter::EncodableValue* arguments,
+      std::unique_ptr<flutter::EventSink<flutter::EncodableValue>>&& events)
+      override {
+    // Store the event sink for later use (when display state changes)
+    return nullptr;
+  }
+
+  std::unique_ptr<flutter::StreamHandlerError<flutter::EncodableValue>>
+  OnCancelInternal(const flutter::EncodableValue* arguments) override {
+    return nullptr;
+  }
+};
+
 // Static member initialization
 HWND ExternalDisplayPlugin::external_window_ = nullptr;
 void* ExternalDisplayPlugin::receive_parameters_ = nullptr;
@@ -73,18 +91,28 @@ std::vector<DisplayInfo> GetDisplays() {
 // static
 void ExternalDisplayPlugin::RegisterWithRegistrar(
     flutter::PluginRegistrarWindows *registrar) {
+  auto plugin = std::make_unique<ExternalDisplayPlugin>();
+  auto* plugin_pointer = plugin.get();
+
   // Create and set up the method channel for displayController
   auto method_channel =
       std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
           registrar->messenger(), "displayController",
           &flutter::StandardMethodCodec::GetInstance());
 
-  auto plugin = std::make_unique<ExternalDisplayPlugin>();
-
   method_channel->SetMethodCallHandler(
-      [plugin_pointer = plugin.get()](const auto &call, auto result) {
+      [plugin_pointer](const auto &call, auto result) {
         plugin_pointer->HandleMethodCall(call, std::move(result));
       });
+
+  // Create and set up the event channel for monitorStateListener
+  auto event_channel =
+      std::make_unique<flutter::EventChannel<flutter::EncodableValue>>(
+          registrar->messenger(), "monitorStateListener",
+          &flutter::StandardMethodCodec::GetInstance());
+
+  event_channel->SetStreamHandler(
+      std::make_unique<MonitorStateStreamHandler>());
 
   registrar->AddPlugin(std::move(plugin));
 }
@@ -221,8 +249,8 @@ void ExternalDisplayPlugin::Connect(
 
   RECT rect;
   if (GetClientRect(external_window_, &rect)) {
-    int width = rect.right - rect.left;
-    int height = rect.bottom - rect.top;
+    double width = static_cast<double>(rect.right - rect.left);
+    double height = static_cast<double>(rect.bottom - rect.top);
     
     flutter::EncodableMap size_map;
     size_map[flutter::EncodableValue("width")] = flutter::EncodableValue(width);
@@ -288,7 +316,9 @@ void ExternalDisplayPlugin::HandleMethodCall(
       Disconnect(flutter::EncodableValue(), std::move(result));
     }
   } else if (method_name == "waitingTransferParametersReady") {
-    WaitingTransferParametersReady(std::move(result));
+
+//    WaitingTransferParametersReady(std::move(result));
+
   } else if (method_name == "sendParameters") {
     if (arguments && std::holds_alternative<flutter::EncodableMap>(*arguments)) {
       SendParameters(*arguments, std::move(result));

@@ -16,6 +16,7 @@
 
 namespace external_display {
 
+
 class ExternalDisplayPlugin : public flutter::Plugin {
  public:
   static void RegisterWithRegistrar(flutter::PluginRegistrarWindows *registrar);
