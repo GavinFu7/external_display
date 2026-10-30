@@ -118,15 +118,17 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
                 if (ExternalDisplayPlugin.externalWindow != nil) {
                     ExternalDisplayPlugin.externalWindow?.close()
                     return result(true)
+                } else {
+                    return result(false)
                 }
-                result(false)
             
             case "connect":
                 if (ExternalDisplayPlugin.externalWindow != nil) {
                     let size = ExternalDisplayPlugin.externalWindow?.contentView?.frame.size ?? NSSize(width: 1920, height: 1080)
                     result(["height":size.height, "width":size.width])
+                } else {
+                    result(false)
                 }
-                result(false)
             
             // 等候外部顯示器可以接收參數
             case "waitingTransferParametersReady":
