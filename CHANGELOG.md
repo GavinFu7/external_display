@@ -1,3 +1,10 @@
+## Unreleased
+
+### Changed
+- Dart API return types are now explicit `Future<bool>` for `connect`, `disconnect`, `createWindow`, `destroyWindow`, `waitingTransferParametersReady`, and `sendParameters`.
+- Status listener type is `void Function(bool connecting)`; parameter listeners use dedicated typedefs.
+- Android/macOS tear down external sessions on unplug, reconnect, disconnect, and window close; external-view `sendParameters` completes its MethodChannel `result` on all platforms.
+
 ## 0.5.0
 
 ### Added

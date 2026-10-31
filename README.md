@@ -28,7 +28,13 @@ Example: <https://github.com/GavinFu7/external_display/blob/main/example/macos/R
 #### Create Window (macOS-only)
 
 ```dart
-await externalDisplay.createWindow({String? title, bool? fullscreen, int? width, int? height, int? targetScreen})
+final created = await externalDisplay.createWindow({
+  String? title,
+  bool? fullscreen,
+  int? width,
+  int? height,
+  int? targetScreen,
+}); // Future<bool>
 ```
 
 **Parameters:**
@@ -46,7 +52,7 @@ await externalDisplay.createWindow({String? title, bool? fullscreen, int? width,
 #### Destroy Window (macOS-only)
 
 ```dart
-await externalDisplay.destroyWindow()
+final destroyed = await externalDisplay.destroyWindow(); // Future<bool>
 ```
 
 ---
@@ -146,6 +152,8 @@ void externalDisplayMain() {}
 ### Monitor External Display Plugging and Unplugging
 
 ```dart
+void onDisplayChange(bool connecting) { /* ... */ }
+
 externalDisplay.addStatusListener(onDisplayChange);
 ```
 
@@ -170,8 +178,13 @@ externalDisplay.resolution
 ### Connecting to the External Display
 
 ```dart
-await externalDisplay.connect({String? routeName, int? targetScreen});
+final connected = await externalDisplay.connect({
+  String? routeName,
+  int? targetScreen,
+}); // Future<bool>
 ```
+
+Returns `true` when connected and `resolution` is updated; otherwise `false`.
 
 **Parameters:**
 
@@ -180,6 +193,12 @@ await externalDisplay.connect({String? routeName, int? targetScreen});
 
 * `targetScreen`: Specifies which display screen to use (defaults to the last connected screen).
 > ⚠️ Android-only parameter (has no effect on other platforms).
+
+### Disconnecting from the External Display
+
+```dart
+final disconnected = await externalDisplay.disconnect({String? routeName}); // Future<bool>
+```
 
 
 ---
@@ -212,15 +231,20 @@ await externalDisplay.sendParameters(action: actionName, value: parameters);
 If you need to transfer parameters immediately after connecting to the external monitor, use `waitingTransferParametersReady` to ensure the external monitor is ready to receive data.
 
 ```dart
-externalDisplay.connect();
-externalDisplay.waitingTransferParametersReady(
+final connected = await externalDisplay.connect();
+if (!connected) {
+  return;
+}
+
+// Returns Future<bool>; onReady / onError are optional helpers.
+final ready = await externalDisplay.waitingTransferParametersReady(
   onReady: () {
     print("Ready to transfer parameters, sending data!");
     externalDisplay.sendParameters(action: "action", value: "data");
   },
   onError: () { // Waiting timeout
     print("Failed to transfer parameters!");
-  }
+  },
 );
 ```
 
@@ -343,7 +367,7 @@ class _HomeState extends State<Home> {
   void initState() {
     super.initState();
     // Add display status change listener
-    externalDisplay.addListener(onDisplayChange);
+    externalDisplay.addStatusListener(onDisplayChange);
   }
 
   @override
@@ -372,21 +396,22 @@ class _HomeState extends State<Home> {
               child: TextButton(
                 style: ButtonStyle(
                    // Button text color
-                  foregroundColor: MaterialStateProperty.all<Color>(Colors.blue),
+                  foregroundColor: WidgetStateProperty.all<Color>(Colors.blue),
                 ),
                 onPressed: () async {
                   // Connect to external display
-                  await externalDisplay.connect();
+                  final connected = await externalDisplay.connect();
                   setState(() {
                     // Update resolution information
-                    resolution =
-                        "width:${externalDisplay.resolution?.width}px, height:${externalDisplay.resolution?.height}px";
+                    resolution = connected
+                        ? "width:${externalDisplay.resolution?.width}px, height:${externalDisplay.resolution?.height}px"
+                        : "";
                   });
                 },
                 child: const Text("Connect"), // Button text
               ),
             ),
-            // Container for displaying resolution informatio
+            // Container for displaying resolution information
             Container(
               height: 100,
               alignment: Alignment.center,

@@ -36,10 +36,11 @@ class _HomeState extends State<Home> {
   String resolution = ""; // External display resolution
 
   // Callback when external display status changes
-  onDisplayChange(connecting) async {
+  void onDisplayChange(bool connecting) {
     if (connecting) {
-      state = "Plug";
-      setState(() {});
+      setState(() {
+        state = "Plug";
+      });
     } else {
       setState(() {
         state = "Unplug";
@@ -49,7 +50,7 @@ class _HomeState extends State<Home> {
   }
 
   // Callback for receiving parameters from external display
-  receiveParameterListener({required String action, dynamic value}) {
+  void receiveParameterListener({required String action, dynamic value}) {
     debugPrint("Main View receive parameter action: $action");
     debugPrint("Main View receive parameter value: $value");
   }
@@ -129,14 +130,25 @@ class _HomeState extends State<Home> {
                         WidgetStateProperty.all<Color>(Colors.blue),
                   ),
                   onPressed: () async {
-                    await externalDisplay.connect();
-                    externalDisplay.waitingTransferParametersReady(onReady: () {
-                      print("First transfer parameters ready!");
-                      externalDisplay.sendParameters(
-                          action: "testing", value: {"c": "cat", "d": "dog"});
-                    }, onError: () {
-                      print("First transfer parameters fail!");
-                    });
+                    final connected = await externalDisplay.connect();
+                    if (!connected) {
+                      setState(() {
+                        resolution = "";
+                      });
+                      return;
+                    }
+                    await externalDisplay.waitingTransferParametersReady(
+                      onReady: () {
+                        debugPrint("First transfer parameters ready!");
+                        externalDisplay.sendParameters(
+                          action: "testing",
+                          value: {"c": "cat", "d": "dog"},
+                        );
+                      },
+                      onError: () {
+                        debugPrint("First transfer parameters fail!");
+                      },
+                    );
                     setState(() {
                       resolution =
                           "width:${externalDisplay.resolution?.width}px, height:${externalDisplay.resolution?.height}px";
@@ -154,13 +166,15 @@ class _HomeState extends State<Home> {
                         WidgetStateProperty.all<Color>(Colors.blue),
                   ),
                   onPressed: () async {
-                    await externalDisplay.connect(routeName: "Testing");
+                    final connected =
+                        await externalDisplay.connect(routeName: "Testing");
                     setState(() {
-                      resolution =
-                          "width:${externalDisplay.resolution?.width}px, height:${externalDisplay.resolution?.height}px";
+                      resolution = connected
+                          ? "width:${externalDisplay.resolution?.width}px, height:${externalDisplay.resolution?.height}px"
+                          : "";
                     });
                   },
-                  child: const Text("Connect")),
+                  child: const Text("Connect with route")),
             ),
             // Button to transfer parameters
             Container(

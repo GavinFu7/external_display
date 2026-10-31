@@ -4,10 +4,16 @@ import 'package:flutter/services.dart';
 /// 傳遞參數
 final transferParameters = TransferParameters();
 
+/// Callback when parameters are received from the main view.
+typedef TransferParametersListener = void Function({
+  required String action,
+  dynamic value,
+});
+
 /// 提供 'TransferParameters' method.
 class TransferParameters {
-  final Set<Function({required String action, dynamic value})> _listeners = {};
-  StreamSubscription? _streamSubscription;
+  final Set<TransferParametersListener> _listeners = {};
+  StreamSubscription<dynamic>? _streamSubscription;
   bool _isDisposed = false;
 
   static const EventChannel _receiveParametersListener =
@@ -19,8 +25,11 @@ class TransferParameters {
     // 開始監控原生端傳回的資料 - 是主頁面傳來的參數
     _streamSubscription =
         _receiveParametersListener.receiveBroadcastStream().listen((event) {
+      if (event is! Map) {
+        return;
+      }
       for (var listener in _listeners) {
-        listener(action: event["action"], value: event["value"]);
+        listener(action: event["action"] as String, value: event["value"]);
       }
     });
 
@@ -28,7 +37,8 @@ class TransferParameters {
   }
 
   /// 如果 'TransferParameters' 不再可以使用
-  static final _finalizer = Finalizer<StreamSubscription>((streamSubscription) {
+  static final _finalizer =
+      Finalizer<StreamSubscription<dynamic>>((streamSubscription) {
     // 停止監控原生端傳回的資料
     streamSubscription.cancel();
   });
@@ -53,19 +63,20 @@ class TransferParameters {
 
   /// 發送參數到主頁面
   Future<bool> sendParameters({required String action, dynamic value}) async {
-    return await _sendParameters
-        .invokeMethod('sendParameters', {"action": action, "value": value});
+    final result = await _sendParameters.invokeMethod<dynamic>(
+      'sendParameters',
+      {"action": action, "value": value},
+    );
+    return result == true;
   }
 
   /// 監控接收參數
-  void addListener(Function({required String action, dynamic value}) listener) {
+  void addListener(TransferParametersListener listener) {
     _listeners.add(listener);
   }
 
   /// 取消接收參數
-  bool removeListener(Function listener) {
-    final result = _listeners.remove(listener);
-
-    return result;
+  bool removeListener(TransferParametersListener listener) {
+    return _listeners.remove(listener);
   }
 }

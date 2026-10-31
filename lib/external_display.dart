@@ -4,14 +4,22 @@ import 'package:flutter/services.dart';
 /// 外接顯示器
 final externalDisplay = ExternalDisplay();
 
+/// Callback when an external display is plugged (`true`) or unplugged (`false`).
+typedef ExternalDisplayStatusListener = void Function(bool connecting);
+
+/// Callback when parameters are received from the external view.
+typedef ExternalDisplayParameterListener = void Function({
+  required String action,
+  dynamic value,
+});
+
 /// 提供 'ExternalDisplay' method
 class ExternalDisplay {
-  final Set<Function(dynamic)> _statusListeners = {};
-  final Set<Function({required String action, dynamic value})>
-      _receiveParameterListeners = {};
+  final Set<ExternalDisplayStatusListener> _statusListeners = {};
+  final Set<ExternalDisplayParameterListener> _receiveParameterListeners = {};
   bool _isPlugging = false;
   Size? _currentResolution;
-  StreamSubscription? _streamSubscription;
+  StreamSubscription<dynamic>? _streamSubscription;
   bool _isDisposed = false;
 
   static const MethodChannel _displayController =
@@ -32,10 +40,10 @@ class ExternalDisplay {
             listener(event);
           }
         }
-      } else {
+      } else if (event is Map) {
         // 其他, 是外部顯示頁面傳回的參數
         for (var listener in _receiveParameterListeners) {
-          listener(action: event["action"], value: event["value"]);
+          listener(action: event["action"] as String, value: event["value"]);
         }
       }
     });
@@ -44,7 +52,8 @@ class ExternalDisplay {
   }
 
   /// 如果 'ExternalDisplay' 不再可以使用
-  static final _finalizer = Finalizer<StreamSubscription>((streamSubscription) {
+  static final _finalizer =
+      Finalizer<StreamSubscription<dynamic>>((streamSubscription) {
     // 停止監控原生端傳回的資料
     streamSubscription.cancel();
   });
@@ -71,56 +80,97 @@ class ExternalDisplay {
 
   /// 取得顯示器列表
   Future<List<String>> getScreen() async {
-    final screens = await _displayController.invokeMethod('getScreen');
-    return screens.cast<String>();
+    final screens = await _displayController.invokeMethod<List<dynamic>>('getScreen');
+    return screens?.cast<String>() ?? const <String>[];
   }
 
-  /// 建立外接顯示器頁面, 只供 macOS 使用
-  Future createWindow(
-      {String? title,
-      bool? fullscreen,
-      int? width,
-      int? height,
-      int? targetScreen}) async {
-    await _displayController.invokeMethod('createWindow', {
-      "title": title,
-      "fullscreen": fullscreen,
-      "width": width,
-      "height": height,
-      "targetScreen": targetScreen
-    });
+  /// 建立外接顯示器頁面, 只供 macOS 使用。
+  ///
+  /// Returns `true` when the native side reports success.
+  Future<bool> createWindow({
+    String? title,
+    bool? fullscreen,
+    int? width,
+    int? height,
+    int? targetScreen,
+  }) async {
+    final result = await _displayController.invokeMethod<dynamic>(
+      'createWindow',
+      {
+        "title": title,
+        "fullscreen": fullscreen,
+        "width": width,
+        "height": height,
+        "targetScreen": targetScreen,
+      },
+    );
+    return result == true;
   }
 
-  /// 銷毀外接顯示器頁面, 只供 macOS 使用
-  Future destroyWindow() async {
-    await _displayController.invokeMethod('destroyWindow');
-  }
-
-  /// 連接外接顯示器並取得分辨率
-  Future connect({String? routeName, int? targetScreen}) async {
-    final size = await _displayController.invokeMethod(
-        'connect', {"routeName": routeName, "targetScreen": targetScreen});
-    if (size != false) {
-      _currentResolution = Size(size["width"], size["height"]);
+  /// 銷毀外接顯示器頁面, 只供 macOS 使用。
+  ///
+  /// Returns `true` when a window was destroyed.
+  Future<bool> destroyWindow() async {
+    final result =
+        await _displayController.invokeMethod<dynamic>('destroyWindow');
+    if (result == true) {
+      _currentResolution = null;
     }
+    return result == true;
   }
 
-  /// 斷開外接顯示器
-  Future disconnect({String? routeName}) async {
-    await _displayController
-        .invokeMethod('disconnect', {"routeName": routeName});
+  /// 連接外接顯示器並取得分辨率。
+  ///
+  /// Returns `true` when connected and [resolution] was updated; otherwise
+  /// `false` and [resolution] is cleared.
+  Future<bool> connect({String? routeName, int? targetScreen}) async {
+    final size = await _displayController.invokeMethod<dynamic>(
+      'connect',
+      {"routeName": routeName, "targetScreen": targetScreen},
+    );
+    if (size is Map) {
+      final width = size["width"];
+      final height = size["height"];
+      if (width is num && height is num) {
+        _currentResolution = Size(width.toDouble(), height.toDouble());
+        return true;
+      }
+    }
+    _currentResolution = null;
+    return false;
   }
 
-  /// 等候外部顯示器可以接收參數
-  Future waitingTransferParametersReady(
-      {required Function() onReady, Function()? onError}) async {
-    final ready =
-        await _displayController.invokeMethod('waitingTransferParametersReady');
+  /// 斷開外接顯示器。
+  ///
+  /// Returns `true` when the native side reports success.
+  Future<bool> disconnect({String? routeName}) async {
+    final result = await _displayController.invokeMethod<dynamic>(
+      'disconnect',
+      {"routeName": routeName},
+    );
+    if (result == true) {
+      _currentResolution = null;
+    }
+    return result == true;
+  }
+
+  /// 等候外部顯示器可以接收參數。
+  ///
+  /// Returns `true` when ready. Optional [onReady] / [onError] callbacks are
+  /// invoked for convenience.
+  Future<bool> waitingTransferParametersReady({
+    VoidCallback? onReady,
+    VoidCallback? onError,
+  }) async {
+    final ready = await _displayController
+            .invokeMethod<dynamic>('waitingTransferParametersReady') ==
+        true;
     if (ready) {
-      onReady();
-    } else if (onError != null) {
-      onError();
+      onReady?.call();
+    } else {
+      onError?.call();
     }
+    return ready;
   }
 
   /// 取得外接顯示器的解像度
@@ -135,32 +185,31 @@ class ExternalDisplay {
 
   /// 發送參數到外部顯示頁面
   Future<bool> sendParameters({required String action, dynamic value}) async {
-    return await _displayController
-        .invokeMethod('sendParameters', {"action": action, "value": value});
+    final result = await _displayController.invokeMethod<dynamic>(
+      'sendParameters',
+      {"action": action, "value": value},
+    );
+    return result == true;
   }
 
   /// 監控外接顯示器的插拔
-  void addStatusListener(Function(dynamic) listener) {
+  void addStatusListener(ExternalDisplayStatusListener listener) {
     _statusListeners.add(listener);
   }
 
   /// 取消外接顯示器插拔的監控
-  bool removeStatusListener(Function listener) {
-    final result = _statusListeners.remove(listener);
-
-    return result;
+  bool removeStatusListener(ExternalDisplayStatusListener listener) {
+    return _statusListeners.remove(listener);
   }
 
   /// 監控接收參數
-  void addReceiveParameterListener(
-      Function({required String action, dynamic value}) listener) {
+  void addReceiveParameterListener(ExternalDisplayParameterListener listener) {
     _receiveParameterListeners.add(listener);
   }
 
   /// 取消接收參數
-  bool removeReceiveParameterListener(Function listener) {
-    final result = _receiveParameterListeners.remove(listener);
-
-    return result;
+  bool removeReceiveParameterListener(
+      ExternalDisplayParameterListener listener) {
+    return _receiveParameterListeners.remove(listener);
   }
 }
