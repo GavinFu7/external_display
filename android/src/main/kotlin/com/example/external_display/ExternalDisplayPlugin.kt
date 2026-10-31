@@ -160,6 +160,8 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
             return
           }
           result.success(false)
+        } else {
+          result.success(false)
         }
       }
       
