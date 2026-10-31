@@ -11,6 +11,8 @@ class ExternalDisplay {
       _receiveParameterListeners = {};
   bool _isPlugging = false;
   Size? _currentResolution;
+  StreamSubscription? _streamSubscription;
+  bool _isDisposed = false;
 
   static const MethodChannel _displayController =
       MethodChannel('displayController');
@@ -19,11 +21,11 @@ class ExternalDisplay {
 
   /// 初始化 ExternalDisplay class
   ExternalDisplay() {
-    // 監控 swift 傳回的資料
-    StreamSubscription streamSubscription =
+    // 監控原生端傳回的資料
+    _streamSubscription =
         _monitorStateListener.receiveBroadcastStream().listen((event) {
       if (event is bool) {
-        // 如果傳圖值是 Boolean, 是顯示器插拔的狀態
+        // 如果傳回值是 Boolean, 是顯示器插拔的狀態
         if (_isPlugging != event) {
           _isPlugging = event;
           for (var listener in _statusListeners) {
@@ -38,14 +40,34 @@ class ExternalDisplay {
       }
     });
 
-    _finalizer.attach(this, streamSubscription);
+    _finalizer.attach(this, _streamSubscription!, detach: this);
   }
 
   /// 如果 'ExternalDisplay' 不再可以使用
   static final _finalizer = Finalizer<StreamSubscription>((streamSubscription) {
-    // 停止監控 swift 傳回的資料
+    // 停止監控原生端傳回的資料
     streamSubscription.cancel();
   });
+
+  /// 是否已釋放資源
+  bool get isDisposed => _isDisposed;
+
+  /// 取消 EventChannel 訂閱並清除所有 listener。
+  ///
+  /// 全域 [externalDisplay] 會活到 process 結束，若不再需要監聽插拔／參數，
+  /// 應呼叫此方法；僅移除單一 listener 時請用 [removeStatusListener] /
+  /// [removeReceiveParameterListener]。
+  void dispose() {
+    if (_isDisposed) {
+      return;
+    }
+    _isDisposed = true;
+    _finalizer.detach(this);
+    _streamSubscription?.cancel();
+    _streamSubscription = null;
+    _statusListeners.clear();
+    _receiveParameterListeners.clear();
+  }
 
   /// 取得顯示器列表
   Future<List<String>> getScreen() async {

@@ -1,3 +1,13 @@
+## 0.5.0
+
+### Added
+- **iOS 27 UISceneAccessory support**: On iOS 27+, external display content uses `UISceneAccessory.externalNonInteractive` and `ExternalDisplaySceneDelegate` instead of the legacy `UIWindow.screen` path.
+- Example app adopts the Flutter UIScene lifecycle (`UIApplicationSceneManifest` + `FlutterPluginRegistrant`).
+
+### Changed
+- iOS `disconnect` and scene teardown now destroy the external `FlutterEngine` to avoid leaking a second Flutter runtime.
+- External-view `sendParameters` now completes its MethodChannel `result`.
+
 ## 0.4.2
 
 ### Fixed

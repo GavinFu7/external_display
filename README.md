@@ -53,27 +53,88 @@ await externalDisplay.destroyWindow()
 
 ### iOS
 
-If you need to use other Flutter plugins (e.g., `path_provider`, `shared_preferences`, etc.) in view created by the `external_display` plugin, you must add the following code to your `AppDelegate.swift`:
+#### 1. Adopt the UIScene lifecycle (required for iOS 27)
+
+iOS 27 / Xcode 27 requires the `UIScene` lifecycle. Add an Application Scene Manifest to your `Info.plist` (see the [Flutter UIScene migration guide](https://docs.flutter.dev/release/breaking-changes/uiscenedelegate)):
+
+```xml
+<key>UIApplicationSceneManifest</key>
+<dict>
+  <key>UIApplicationSupportsMultipleScenes</key>
+  <false/>
+  <key>UISceneConfigurations</key>
+  <dict>
+    <key>UIWindowSceneSessionRoleApplication</key>
+    <array>
+      <dict>
+        <key>UISceneClassName</key>
+        <string>UIWindowScene</string>
+        <key>UISceneDelegateClassName</key>
+        <string>FlutterSceneDelegate</string>
+        <key>UISceneConfigurationName</key>
+        <string>flutter</string>
+        <key>UISceneStoryboardFile</key>
+        <string>Main</string>
+      </dict>
+    </array>
+  </dict>
+</dict>
+```
+
+#### 2. Register plugins for UIScene (required)
+
+With UIScene, register plugins via `FlutterPluginRegistrant` / `pluginRegistrant`. If you need other Flutter plugins (e.g. `path_provider`) on the external display, also set `ExternalDisplayPlugin.registerGeneratedPlugin`:
 
 ```swift
+import UIKit
+import Flutter
 import external_display
-.
-.
-override func application(
+
+@main
+@objc class AppDelegate: FlutterAppDelegate, FlutterPluginRegistrant {
+  override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
-) -> Bool {
+  ) -> Bool {
+    pluginRegistrant = self
     ExternalDisplayPlugin.registerGeneratedPlugin = registerGeneratedPlugin
-    .
-    .
-}
+    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
 
-func registerGeneratedPlugin(controller: FlutterViewController) {
+  func register(with registry: FlutterPluginRegistry) {
+    GeneratedPluginRegistrant.register(with: registry)
+  }
+
+  func registerGeneratedPlugin(controller: FlutterViewController) {
     GeneratedPluginRegistrant.register(with: controller)
+  }
 }
 ```
 
 Example: <https://github.com/GavinFu7/external_display/blob/main/example/ios/Runner/AppDelegate.swift>
+
+#### 3. UISceneAccessory for external displays (iOS 27+)
+
+Starting with **iOS 27**, custom content on a non-interactive external display is only delivered after the app registers a [`UISceneAccessory`](https://developer.apple.com/documentation/uikit/uisceneaccessory).
+
+This plugin handles that for you:
+
+* On iOS 27+, `connect()` registers `UISceneAccessory.externalNonInteractive` on the main `FlutterViewController`, enables it, and attaches a `UIWindow` in `ExternalDisplaySceneDelegate` when the system connects the external scene.
+* On iOS 15–26, the plugin keeps the legacy `UIScreen` + `UIWindow.screen` path.
+* Host apps do **not** need to register `UISceneAccessory` manually.
+
+Dart usage is unchanged:
+
+```dart
+await externalDisplay.connect();
+```
+
+> Simulator tip: Device Hub has no External Displays UI. Enable a 1080p display with:
+>
+> ```bash
+> xcrun simctl io booted screenConfig --display=2 power on
+> xcrun simctl io booted screenConfig --display=2 geometry 1920x1080@2x
+> ```
 
 ### External Display Entry Point `externalDisplayMain`
 
@@ -85,13 +146,13 @@ void externalDisplayMain() {}
 ### Monitor External Display Plugging and Unplugging
 
 ```dart
-externalDisplay.addListener(onDisplayChange);
+externalDisplay.addStatusListener(onDisplayChange);
 ```
 
 ### Cancel External Display Monitoring
 
 ```dart
-externalDisplay.removeListener(onDisplayChange);
+externalDisplay.removeStatusListener(onDisplayChange);
 ```
 
 ### Get the Connection Status
@@ -155,7 +216,7 @@ externalDisplay.connect();
 externalDisplay.waitingTransferParametersReady(
   onReady: () {
     print("Ready to transfer parameters, sending data!");
-    externalDisplay.transferParameters(action: "action", value: "data");
+    externalDisplay.sendParameters(action: "action", value: "data");
   },
   onError: () { // Waiting timeout
     print("Failed to transfer parameters!");

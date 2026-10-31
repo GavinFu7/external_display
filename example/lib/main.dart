@@ -62,6 +62,16 @@ class _HomeState extends State<Home> {
   }
 
   @override
+  void dispose() {
+    // 全域 externalDisplay 活到 process 結束；此處只移除本頁 listener，
+    // 避免 Widget 銷毀後仍被回呼。若整個 App 不再使用外接螢幕，可改呼叫
+    // externalDisplay.dispose()。
+    externalDisplay.removeStatusListener(onDisplayChange);
+    externalDisplay.removeReceiveParameterListener(receiveParameterListener);
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
         appBar: AppBar(
