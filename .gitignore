@@ -33,3 +33,6 @@ build/
 # Swift Package Manager
 .build/
 .swiftpm/
+
+# FVM Version Cache
+.fvm/

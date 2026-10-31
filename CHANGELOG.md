@@ -1,4 +1,4 @@
-## Unreleased
+## 0.5.1
 
 ### Added
 - iOS Swift Package Manager support (`ios/external_display/Package.swift`).
