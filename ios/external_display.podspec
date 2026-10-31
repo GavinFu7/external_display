@@ -5,15 +5,16 @@
 Pod::Spec.new do |s|
   s.name             = 'external_display'
   s.version          = '0.0.1'
-  s.summary          = 'A new Flutter plugin project.'
+  s.summary          = 'Flutter plugin for wired or wireless external displays.'
   s.description      = <<-DESC
-A new Flutter plugin project.
+The Flutter plugin supports connecting to an external display via wired or wireless connections.
                        DESC
-  s.homepage         = 'http://example.com'
+  s.homepage         = 'https://github.com/GavinFu7/external_display'
   s.license          = { :file => '../LICENSE' }
-  s.author           = { 'Your Company' => 'email@example.com' }
+  s.author           = { 'GavinFu7' => 'email@example.com' }
   s.source           = { :path => '.' }
-  s.source_files = 'Classes/**/*'
+  s.source_files = 'external_display/Sources/external_display/**/*.swift'
+  s.resource_bundles = {'external_display_privacy' => ['external_display/Sources/external_display/PrivacyInfo.xcprivacy']}
   s.dependency 'Flutter'
   s.platform = :ios, '15.0'
 

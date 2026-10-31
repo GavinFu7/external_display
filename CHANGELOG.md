@@ -1,9 +1,13 @@
 ## Unreleased
 
+### Added
+- iOS Swift Package Manager support (`ios/external_display/Package.swift`).
+
 ### Changed
 - Dart API return types are now explicit `Future<bool>` for `connect`, `disconnect`, `createWindow`, `destroyWindow`, `waitingTransferParametersReady`, and `sendParameters`.
 - Status listener type is `void Function(bool connecting)`; parameter listeners use dedicated typedefs.
 - Android/macOS tear down external sessions on unplug, reconnect, disconnect, and window close; external-view `sendParameters` completes its MethodChannel `result` on all platforms.
+- Migrates Android plugin to built-in Kotlin (`kotlin.compilerOptions`) and raises the minimum Flutter SDK to 3.44 / Dart 3.12.
 
 ## 0.5.0
 
