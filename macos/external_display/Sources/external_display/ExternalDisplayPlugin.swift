@@ -10,6 +10,9 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
     public static var receiveParameters:FlutterEventChannel?
     public static var sendParameters:FlutterMethodChannel?
     public static var externalWindow: NSWindow?
+    public static var externalEngine: FlutterEngine?
+    /// Observer that closes the external window when another app window closes.
+    static var otherWindowCloseObserver: NSObjectProtocol?
     
     public static func register(with registrar: FlutterPluginRegistrar) {
         // 建立 Flutter EventChannel
@@ -19,6 +22,42 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
         // 建立 Flutter MethodChannel
         let connect = FlutterMethodChannel(name: "displayController", binaryMessenger: registrar.messenger)
         registrar.addMethodCallDelegate(ExternalDisplayPlugin(), channel: connect)
+    }
+
+    /// Tear down external window, channels, and engine.
+    /// - Parameters:
+    ///   - notifyUnplug: Whether to notify the main view that the external display was removed.
+    ///   - isClosing: Pass `true` when called from `windowWillClose` so we do not call `close()` again.
+    public static func tearDownExternalSession(notifyUnplug: Bool, isClosing: Bool = false) {
+        guard externalWindow != nil || externalEngine != nil else {
+            return
+        }
+
+        if let observer = otherWindowCloseObserver {
+            NotificationCenter.default.removeObserver(observer)
+            otherWindowCloseObserver = nil
+        }
+
+        receiveParameters?.setStreamHandler(nil)
+        receiveParameters = nil
+        sendParameters?.setMethodCallHandler(nil)
+        sendParameters = nil
+        externalViewEvents = nil
+        connectReturn = nil
+
+        let window = externalWindow
+        externalWindow = nil
+        externalEngine = nil
+
+        window?.delegate = nil
+        window?.contentViewController = nil
+        if !isClosing {
+            window?.close()
+        }
+
+        if notifyUnplug {
+            mainViewEvents?(false)
+        }
     }
 
     // 接收主頁面的命令和參數
@@ -51,25 +90,27 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
  
                 DispatchQueue.main.async {
                     var frame = NSScreen.screens[0].frame
-                    if (screenIndex > 0 || screenIndex < NSScreen.screens.count) {
-                        frame = NSScreen.screens[screenIndex].frame
-                        frame.origin.y = frame.maxY
+                    let resolvedIndex: Int
+                    if screenIndex >= 0 && screenIndex < NSScreen.screens.count {
+                        resolvedIndex = screenIndex
                     } else {
-                        frame = NSScreen.screens[NSScreen.screens.count-1].frame
-                        frame.origin.y = frame.maxY
+                        resolvedIndex = NSScreen.screens.count - 1
                     }
+                    frame = NSScreen.screens[resolvedIndex].frame
+                    frame.origin.y = frame.maxY
 
-                    if (ExternalDisplayPlugin.externalWindow == nil) {
+                    if ExternalDisplayPlugin.externalWindow == nil {
                         ExternalDisplayPlugin.externalWindow = NSWindow(
                             contentRect: frame,
                             styleMask: [.titled, .closable, .miniaturizable, .resizable, .borderless],
                             backing: .buffered,
                             defer: true,
-                            screen: NSScreen.screens[screenIndex]
+                            screen: NSScreen.screens[resolvedIndex]
                         )
 
                         let flutterEngine = FlutterEngine(name: "External Window", project: FlutterDartProject())
                         flutterEngine.run(withEntrypoint: "externalDisplayMain")
+                        ExternalDisplayPlugin.externalEngine = flutterEngine
                         let externalViewController = FlutterViewController(engine: flutterEngine, nibName: nil, bundle: nil)
                         ExternalDisplayPlugin.registerGeneratedPlugin?(externalViewController)
 
@@ -82,28 +123,28 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
                         ExternalDisplayPlugin.externalWindow?.contentViewController = externalViewController
                         ExternalDisplayPlugin.externalWindow?.isReleasedWhenClosed = false
                         ExternalDisplayPlugin.externalWindow?.setFrameAutosaveName("External Window")
-                        ExternalDisplayPlugin.externalWindow?.delegate = self;
+                        ExternalDisplayPlugin.externalWindow?.delegate = self
                         
-                        NotificationCenter.default.addObserver(
+                        ExternalDisplayPlugin.otherWindowCloseObserver = NotificationCenter.default.addObserver(
                             forName: NSWindow.willCloseNotification,
-                            object: nil, // 监听所有窗口
+                            object: nil,
                             queue: .main
                         ) { notification in
                             let window = notification.object as? NSWindow
-                            if (window != ExternalDisplayPlugin.externalWindow) {
-                                ExternalDisplayPlugin.externalWindow?.close()
+                            if window != ExternalDisplayPlugin.externalWindow {
+                                ExternalDisplayPlugin.tearDownExternalSession(notifyUnplug: true)
                             }
                         }
                     }
                     
-                    if (title != "External View") {
+                    if title != "External View" {
                         ExternalDisplayPlugin.externalWindow?.title = title
                     }
                         
                     ExternalDisplayPlugin.externalWindow?.orderFront(nil)
                     ExternalDisplayPlugin.externalWindow?.setFrameOrigin(frame.origin)
                     
-                    if (fullscreen) {
+                    if fullscreen {
                         ExternalDisplayPlugin.externalWindow?.toggleFullScreen(nil)
                     } else {
                         ExternalDisplayPlugin.externalWindow?.setContentSize(NSSize(width: windowWidth, height: windowHeight))
@@ -115,15 +156,15 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
                 result(true)
             
             case "destroyWindow":
-                if (ExternalDisplayPlugin.externalWindow != nil) {
-                    ExternalDisplayPlugin.externalWindow?.close()
-                    return result(true)
+                if ExternalDisplayPlugin.externalWindow != nil || ExternalDisplayPlugin.externalEngine != nil {
+                    ExternalDisplayPlugin.tearDownExternalSession(notifyUnplug: true)
+                    result(true)
                 } else {
-                    return result(false)
+                    result(false)
                 }
             
             case "connect":
-                if (ExternalDisplayPlugin.externalWindow != nil) {
+                if ExternalDisplayPlugin.externalWindow != nil {
                     let size = ExternalDisplayPlugin.externalWindow?.contentView?.frame.size ?? NSSize(width: 1920, height: 1080)
                     result(["height":size.height, "width":size.width])
                 } else {
@@ -145,7 +186,7 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
                 ExternalDisplayPlugin.connectReturn = returnResolution
 
                 
-                if (ExternalDisplayPlugin.externalViewEvents != nil) {
+                if ExternalDisplayPlugin.externalViewEvents != nil {
                     ExternalDisplayPlugin.connectReturn?()
                 } else {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 10.0, execute: sendFail)
@@ -153,7 +194,7 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
             
             // 發送參數到外部顯示頁面
             case "sendParameters":
-                if (ExternalDisplayPlugin.externalViewEvents != nil) {
+                if ExternalDisplayPlugin.externalViewEvents != nil {
                     ExternalDisplayPlugin.externalViewEvents?(call.arguments)
                     result(true)
                 } else {
@@ -166,7 +207,7 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
     }
     
     public func windowWillClose(_: Notification) {
-        ExternalDisplayPlugin.mainViewEvents?(false)
+        ExternalDisplayPlugin.tearDownExternalSession(notifyUnplug: true, isClosing: true)
     }
 }
 
@@ -176,6 +217,7 @@ public class ExternalDisplaySendParameters: NSObject, FlutterPlugin {
 
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         ExternalDisplayPlugin.mainViewEvents?(call.arguments)
+        result(true)
     }
 }
 
