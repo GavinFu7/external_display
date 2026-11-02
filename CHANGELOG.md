@@ -1,3 +1,11 @@
+## 0.5.2
+
+### Fixed
+- **macOS**: Exiting fullscreen on an external window no longer crashes the app (`Could not create the embedder backing store`). The main-window close observer now watches only the primary Flutter window, so AppKit transient windows created during fullscreen transitions no longer tear down the external `FlutterEngine`.
+
+### Changed
+- macOS external windows use a standard titled style mask with `fullScreenPrimary` collection behavior, and session teardown now calls `shutDownEngine()` after detaching the view.
+
 ## 0.5.1
 
 ### Added

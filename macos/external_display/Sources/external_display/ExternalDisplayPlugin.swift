@@ -11,7 +11,7 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
     public static var sendParameters:FlutterMethodChannel?
     public static var externalWindow: NSWindow?
     public static var externalEngine: FlutterEngine?
-    /// Observer that closes the external window when another app window closes.
+    /// Observer that tears down the external session when the main app window closes.
     static var otherWindowCloseObserver: NSObjectProtocol?
     
     public static func register(with registrar: FlutterPluginRegistrar) {
@@ -46,17 +46,53 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
         connectReturn = nil
 
         let window = externalWindow
+        let engine = externalEngine
         externalWindow = nil
         externalEngine = nil
 
         window?.delegate = nil
+        // Detach the view before shutting down the engine so Impeller/Metal
+        // is not asked for a new backing store on a dying surface.
         window?.contentViewController = nil
+        engine?.shutDownEngine()
         if !isClosing {
             window?.close()
         }
 
         if notifyUnplug {
             mainViewEvents?(false)
+        }
+    }
+
+    /// The primary Flutter window (excludes the external display window).
+    static func findMainAppWindow() -> NSWindow? {
+        return NSApp.windows.first { window in
+            window !== externalWindow
+                && window.contentViewController is FlutterViewController
+                && window.styleMask.contains(.titled)
+        }
+    }
+
+    /// Observe only the main window closing — not every NSWindow.
+    ///
+    /// Listening to all `willCloseNotification`s is unsafe: AppKit creates and
+    /// closes transient windows during fullscreen enter/exit. Those closings
+    /// would tear down the external FlutterEngine mid-resize and crash with
+    /// "Could not create the embedder backing store".
+    static func observeMainWindowClose() {
+        if let observer = otherWindowCloseObserver {
+            NotificationCenter.default.removeObserver(observer)
+            otherWindowCloseObserver = nil
+        }
+        guard let mainWindow = findMainAppWindow() else {
+            return
+        }
+        otherWindowCloseObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification,
+            object: mainWindow,
+            queue: .main
+        ) { _ in
+            ExternalDisplayPlugin.tearDownExternalSession(notifyUnplug: true)
         }
     }
 
@@ -102,11 +138,18 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
                     if ExternalDisplayPlugin.externalWindow == nil {
                         ExternalDisplayPlugin.externalWindow = NSWindow(
                             contentRect: frame,
-                            styleMask: [.titled, .closable, .miniaturizable, .resizable, .borderless],
+                            styleMask: [.titled, .closable, .miniaturizable, .resizable],
                             backing: .buffered,
                             defer: true,
                             screen: NSScreen.screens[resolvedIndex]
                         )
+                        // Allow native fullscreen without relying on transient
+                        // AppKit helper windows that previously tripped our close observer.
+                        ExternalDisplayPlugin.externalWindow?.collectionBehavior = [
+                            .fullScreenPrimary,
+                            .managed,
+                            .participatesInCycle,
+                        ]
 
                         let flutterEngine = FlutterEngine(name: "External Window", project: FlutterDartProject())
                         flutterEngine.run(withEntrypoint: "externalDisplayMain")
@@ -124,17 +167,8 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
                         ExternalDisplayPlugin.externalWindow?.isReleasedWhenClosed = false
                         ExternalDisplayPlugin.externalWindow?.setFrameAutosaveName("External Window")
                         ExternalDisplayPlugin.externalWindow?.delegate = self
-                        
-                        ExternalDisplayPlugin.otherWindowCloseObserver = NotificationCenter.default.addObserver(
-                            forName: NSWindow.willCloseNotification,
-                            object: nil,
-                            queue: .main
-                        ) { notification in
-                            let window = notification.object as? NSWindow
-                            if window != ExternalDisplayPlugin.externalWindow {
-                                ExternalDisplayPlugin.tearDownExternalSession(notifyUnplug: true)
-                            }
-                        }
+
+                        ExternalDisplayPlugin.observeMainWindowClose()
                     }
                     
                     if title != "External View" {
