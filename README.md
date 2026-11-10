@@ -135,13 +135,6 @@ Dart usage is unchanged:
 await externalDisplay.connect();
 ```
 
-> Simulator tip: Device Hub has no External Displays UI. Enable a 1080p display with:
->
-> ```bash
-> xcrun simctl io booted screenConfig --display=2 power on
-> xcrun simctl io booted screenConfig --display=2 geometry 1920x1080@2x
-> ```
-
 ### External Display Entry Point `externalDisplayMain`
 
 ```dart
