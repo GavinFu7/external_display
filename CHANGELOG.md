@@ -1,3 +1,13 @@
+## 0.5.3
+
+### Fixed
+- **Android**: Parse MethodChannel arguments as a `Map` instead of `JSONObject("${call.arguments}")`, which could fail at runtime because `Map.toString()` is not valid JSON.
+
+### Changed
+- Android plugin package/namespace renamed from `com.example.external_display` to `com.gavinfu.external_display`.
+- `homepage` now points to the repository URL; iOS/macOS podspec metadata updated to match package version `0.5.3`.
+- Bumps `flutter_lints` to `^6.0.0`.
+
 ## 0.5.2
 
 ### Fixed

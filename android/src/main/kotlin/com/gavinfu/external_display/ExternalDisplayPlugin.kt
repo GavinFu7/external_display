@@ -1,4 +1,4 @@
-package com.example.external_display
+package com.gavinfu.external_display
 
 import android.app.Presentation
 import android.content.Context
@@ -22,7 +22,6 @@ import io.flutter.plugin.common.EventChannel.StreamHandler
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
-import org.json.JSONObject
 
 class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, ActivityAware {
   var connectReturn : (() -> Unit)? = null
@@ -112,9 +111,8 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
 
       "connect" -> {
         if (displayManager.displays.size > 1) {
-          val args = JSONObject("${call.arguments}")
-          val routeName: String = args.optString("routeName", "externalView")
-          var displayId: Int = args.optInt("targetScreen", -1)
+          val routeName = MethodCallArgs.routeName(call.arguments)
+          var displayId = MethodCallArgs.targetScreen(call.arguments)
           var display: Display? = null
           if (displayId > 0) {
             display = displayManager.getDisplay(displayId)
@@ -198,8 +196,7 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
       }
 
       "disconnect" -> {
-        val args = JSONObject("${call.arguments}")
-        val routeName = args.optString("routeName", "externalView")
+        val routeName = MethodCallArgs.routeName(call.arguments)
         tearDownSession(routeName)
         result.success(true)
       }

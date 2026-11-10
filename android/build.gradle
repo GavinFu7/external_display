@@ -1,4 +1,4 @@
-group = 'com.example.external_display'
+group = 'com.gavinfu.external_display'
 version = '1.0-SNAPSHOT'
 
 buildscript {
@@ -24,7 +24,7 @@ allprojects {
 apply plugin: 'com.android.library'
 
 android {
-    namespace = 'com.example.external_display'
+    namespace = 'com.gavinfu.external_display'
 
     compileSdk = 36
 
