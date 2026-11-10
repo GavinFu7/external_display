@@ -2,11 +2,24 @@
 
 The Flutter plugin supports connecting to an external display via wired or wireless connections. The main view and the external display view can exchange data with each other.
 
+## Platform support
+
+| Platform | Supported |
+| --- | --- |
+| iOS / Android / macOS | ✅ |
+| Windows / Linux / Web | ❌ |
+
 ## Getting Started
+
+Import the package and use the shared `externalDisplay` instance:
+
+```dart
+import 'package:external_display/external_display.dart';
+```
 
 ### macOS
 
-If you need to use other Flutter plugins (e.g., `path_provider`, `shared_preferences`, etc.) in window created by the `external_display` plugin, you must add the following code to your `AppDelegate.swift`:
+If you need to use other Flutter plugins (e.g., `path_provider`, `shared_preferences`, etc.) in a window created by the `external_display` plugin, you must add the following code to your `AppDelegate.swift`:
 
 ```swift
 import external_display
@@ -28,25 +41,21 @@ Example: <https://github.com/GavinFu7/external_display/blob/main/example/macos/R
 #### Create Window (macOS-only)
 
 ```dart
-final created = await externalDisplay.createWindow({
-  String? title,
-  bool? fullscreen,
-  int? width,
-  int? height,
-  int? targetScreen,
-}); // Future<bool>
+final created = await externalDisplay.createWindow(
+  title: 'External View',
+  fullscreen: false,
+  width: 1920,
+  height: 1080,
+  targetScreen: null, // defaults to the last screen
+); // Future<bool>
 ```
 
 **Parameters:**
 
 * `title`: Window title (displayed in the title bar)
-
 * `fullscreen`: Whether to display in fullscreen mode
-
 * `width`: Window width (in pixels)
-
 * `height`: Window height (in pixels)
-
 * `targetScreen`: Display screen index (which screen to show the window on)
 
 #### Destroy Window (macOS-only)
@@ -137,9 +146,13 @@ await externalDisplay.connect();
 
 ### External Display Entry Point `externalDisplayMain`
 
+Define a separate Dart entrypoint for the external display engine. Annotate it with `@pragma('vm:entry-point')` so it is not tree-shaken:
+
 ```dart
 @pragma('vm:entry-point')
-void externalDisplayMain() {}
+void externalDisplayMain() {
+  runApp(const MaterialApp(home: ExternalView()));
+}
 ```
 
 ### Monitor External Display Plugging and Unplugging
@@ -154,6 +167,12 @@ externalDisplay.addStatusListener(onDisplayChange);
 
 ```dart
 externalDisplay.removeStatusListener(onDisplayChange);
+```
+
+### Get Available Screens
+
+```dart
+final screens = await externalDisplay.getScreen(); // Future<List<String>>
 ```
 
 ### Get the Connection Status
@@ -171,17 +190,17 @@ externalDisplay.resolution
 ### Connecting to the External Display
 
 ```dart
-final connected = await externalDisplay.connect({
-  String? routeName,
-  int? targetScreen,
-}); // Future<bool>
+final connected = await externalDisplay.connect(
+  routeName: 'externalView',
+  targetScreen: null,
+); // Future<bool>
 ```
 
 Returns `true` when connected and `resolution` is updated; otherwise `false`.
 
 **Parameters:**
 
-* `routeName`: Works with Flutter's MaterialApp `routes` property to define which route should launch the application.
+* `routeName`: Works with Flutter's MaterialApp `routes` / `onGenerateRoute` to choose which route to show on the external display.
 > ⚠️ Not recommended for use (this parameter has no effect on macOS).
 
 * `targetScreen`: Specifies which display screen to use (defaults to the last connected screen).
@@ -190,27 +209,42 @@ Returns `true` when connected and `resolution` is updated; otherwise `false`.
 ### Disconnecting from the External Display
 
 ```dart
-final disconnected = await externalDisplay.disconnect({String? routeName}); // Future<bool>
+final disconnected = await externalDisplay.disconnect(
+  routeName: 'externalView',
+); // Future<bool>
 ```
 
+### Dispose
+
+The package exposes a process-wide `externalDisplay` instance. If you no longer need plug/unplug or parameter listeners, call:
+
+```dart
+externalDisplay.dispose();
+```
+
+To remove only one listener, prefer `removeStatusListener` / `removeReceiveParameterListener` instead.
 
 ---
 
 ## Main View: Transferring Parameters
 
+Use `externalDisplay` on the main view. Do **not** use `transferParameters` here.
+
 ### Add a Listener to Receive Parameters from the External View
 
 ```dart
-transferParameters.addListener(({required action, value}) {
+void onReceiveParameters({required String action, dynamic value}) {
   print(action);
   print(value);
-});
+}
+
+externalDisplay.addReceiveParameterListener(onReceiveParameters);
 ```
 
 ### Remove the Listener
 
 ```dart
-transferParameters.removeListener(receive);
+externalDisplay.removeReceiveParameterListener(onReceiveParameters);
 ```
 
 ### Transfer Parameters to the External View
@@ -245,6 +279,8 @@ final ready = await externalDisplay.waitingTransferParametersReady(
 
 ## External View: Transferring Parameters
 
+On the external display entrypoint, use `TransferParameters` (or the shared `transferParameters` instance). Prefer creating a dedicated instance per external page and disposing it with the page lifecycle.
+
 ### Import `transfer_parameters.dart`
 
 ```dart
@@ -254,16 +290,18 @@ import 'package:external_display/transfer_parameters.dart';
 ### Add a Listener to Receive Parameters from the Main View
 
 ```dart
-transferParameters.addListener(({required action, value}) {
+void onReceiveParameters({required String action, dynamic value}) {
   print(action);
   print(value);
-});
+}
+
+transferParameters.addListener(onReceiveParameters);
 ```
 
 ### Remove the Listener
 
 ```dart
-transferParameters.removeListener(receive);
+transferParameters.removeListener(onReceiveParameters);
 ```
 
 ### Transfer Parameters to the Main View
@@ -272,59 +310,51 @@ transferParameters.removeListener(receive);
 await transferParameters.sendParameters(action: actionName, value: parameters);
 ```
 
+### Dispose
+
+```dart
+transferParameters.dispose();
+```
+
 ---
 
 ## Example
 
+Minimal example. For the full sample app, see [`example/`](example/).
+
 ```dart
 import 'package:flutter/material.dart';
-// Import external display package
 import 'package:external_display/external_display.dart';
 
 void main() {
-  // Launch the main application
   runApp(const MyApp());
 }
 
-// This annotation tells Flutter that this is the entry point for external display
 @pragma('vm:entry-point')
 void externalDisplayMain() {
-  // Create a separate MaterialApp for external display
-  runApp(const MaterialApp(
-    // Set the home page for external display
-    home: ExternalView(),
-  ));
+  runApp(const MaterialApp(home: ExternalView()));
 }
 
-// Main application component
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
-      // Set the home page of the application
-      home: Home(),
-    );
+    return const MaterialApp(home: Home());
   }
 }
 
-// External display view component
 class ExternalView extends StatelessWidget {
   const ExternalView({super.key});
 
   @override
   Widget build(BuildContext context) {
     return const Scaffold(
-      body: Center(
-        // Text displayed on external display
-        child: Text('This is the external view.'),
-      ),
+      body: Center(child: Text('This is the external view.')),
     );
   }
 }
 
-// Home page component
 class Home extends StatefulWidget {
   const Home({super.key});
 
@@ -332,26 +362,17 @@ class Home extends StatefulWidget {
   State<Home> createState() => _HomeState();
 }
 
-// Home page state class
 class _HomeState extends State<Home> {
-  // Create external display instance
-  ExternalDisplay externalDisplay = ExternalDisplay();
-  // External display connection status
-  String state = "Unplugged";
-  // External display resolution information
-  String resolution = "";
+  String state = 'Unplugged';
+  String resolution = '';
 
-  // Callback function when external display connection status changes
   void onDisplayChange(bool connecting) {
     setState(() {
       if (connecting) {
-        // Update to connected status
-        state = "Plugged";
+        state = 'Plugged';
       } else {
-        // Update to disconnected status
-        state = "Unplugged";
-        // Clear resolution information
-        resolution = "";
+        state = 'Unplugged';
+        resolution = '';
       }
     });
   }
@@ -359,60 +380,46 @@ class _HomeState extends State<Home> {
   @override
   void initState() {
     super.initState();
-    // Add display status change listener
     externalDisplay.addStatusListener(onDisplayChange);
+  }
+
+  @override
+  void dispose() {
+    externalDisplay.removeStatusListener(onDisplayChange);
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        // App bar title
-        title: const Text('External Display Example'),
-      ),
-      body: Container(
-        // Set background color to white
-        color: Colors.white,
-        child: Column(
-          children: [
-            // Container for displaying external display status
-            Container(
-              height: 100,
-              alignment: Alignment.center,
-              // Display current connection stat
-              child: Text("External Monitor is $state"),
-            ),
-            // Connect button container
-            Container(
-              height: 100,
-              alignment: Alignment.center,
+      appBar: AppBar(title: const Text('External Display Example')),
+      body: Column(
+        children: [
+          SizedBox(
+            height: 100,
+            child: Center(child: Text('External Monitor is $state')),
+          ),
+          SizedBox(
+            height: 100,
+            child: Center(
               child: TextButton(
-                style: ButtonStyle(
-                   // Button text color
-                  foregroundColor: WidgetStateProperty.all<Color>(Colors.blue),
-                ),
                 onPressed: () async {
-                  // Connect to external display
                   final connected = await externalDisplay.connect();
                   setState(() {
-                    // Update resolution information
                     resolution = connected
-                        ? "width:${externalDisplay.resolution?.width}px, height:${externalDisplay.resolution?.height}px"
-                        : "";
+                        ? 'width:${externalDisplay.resolution?.width}px, height:${externalDisplay.resolution?.height}px'
+                        : '';
                   });
                 },
-                child: const Text("Connect"), // Button text
+                child: const Text('Connect'),
               ),
             ),
-            // Container for displaying resolution information
-            Container(
-              height: 100,
-              alignment: Alignment.center,
-              // Display external display resolution
-              child: Text(resolution),
-            ),
-          ],
-        ),
+          ),
+          SizedBox(
+            height: 100,
+            child: Center(child: Text(resolution)),
+          ),
+        ],
       ),
     );
   }
