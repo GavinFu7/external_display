@@ -25,6 +25,9 @@ class ExternalDisplay {
   // Shared by every instance: the last plug state the platform reported.
   static bool _isPlugging = false;
   Size? _currentResolution;
+  // Counts the unplug (`false`) events this instance received; [connect]
+  // compares it across its call.
+  int _unplugs = 0;
   bool _isDisposed = false;
 
   static const MethodChannel _displayController =
@@ -69,6 +72,7 @@ class ExternalDisplay {
       if (!event) {
         for (final display in _monitor.members) {
           display._currentResolution = null;
+          display._unplugs++;
         }
       }
       if (_isPlugging != event) {
@@ -166,12 +170,19 @@ class ExternalDisplay {
   ///
   /// Returns `true` when connected and [resolution] was updated; otherwise
   /// `false` and [resolution] is cleared.
+  ///
+  /// An unplug (`false` status event) that reaches this instance while the
+  /// call is in flight ends the session it would report: the call then
+  /// returns `false` and leaves [resolution] cleared, whatever the native side
+  /// answered. On iOS the status event of a session that ends right after
+  /// connecting can reach Dart before the connect result sent earlier.
   Future<bool> connect({String? routeName, int? targetScreen}) async {
+    final unplugsBefore = _unplugs;
     final size = await _invoke<dynamic>(
       'connect',
       {"routeName": routeName, "targetScreen": targetScreen},
     );
-    if (size is Map) {
+    if (_unplugs == unplugsBefore && size is Map) {
       final width = size["width"];
       final height = size["height"];
       if (width is num && height is num) {

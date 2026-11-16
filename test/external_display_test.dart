@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:external_display/external_display.dart';
 import 'package:external_display/transfer_parameters.dart';
 import 'package:flutter/foundation.dart';
@@ -472,6 +474,146 @@ void main() {
       expect(display.isConnected, isTrue);
       await display.destroyWindow();
       expect(display.isConnected, isFalse);
+    });
+  });
+
+  group('unplug during connect', () {
+    const size = <String, double>{'width': 1920, 'height': 1080};
+
+    // Makes the mocked native connect wait until the returned completer is
+    // completed; the other methods keep the default answers.
+    Completer<Object?> gateConnect() {
+      final gate = Completer<Object?>();
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(displayController, (MethodCall call) async {
+        displayCalls.add(call);
+        if (call.method == 'connect') {
+          return gate.future;
+        }
+        return call.method == 'disconnect' ? true : null;
+      });
+      return gate;
+    }
+
+    test('a false while connect is in flight makes it fail', () async {
+      final display = ExternalDisplay();
+      addTearDown(display.dispose);
+      await emitMonitorEvent(true);
+      final gate = gateConnect();
+
+      final connecting = display.connect();
+      await pumpEventQueue();
+      expect(displayCalls.single.method, 'connect');
+      await emitMonitorEvent(false);
+      gate.complete(size);
+
+      expect(await connecting, isFalse);
+      expect(display.isConnected, isFalse);
+      expect(display.resolution, isNull);
+    });
+
+    test('a false sent right before the answer, as on iOS, makes it fail',
+        () async {
+      final display = ExternalDisplay();
+      addTearDown(display.dispose);
+      await emitMonitorEvent(true);
+      // The engine runs a native-to-Dart message into Dart at once
+      // (fml::TaskRunner::RunNowAndFlushMessages) but posts a method result
+      // as a later task (PostCompletion): the session ended right after the
+      // native side answered connect, yet Dart sees the false first. Model
+      // both: dispatch the event directly, without the extra microtask hop of
+      // the mock event sink, and answer from a later task.
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(displayController,
+          (MethodCall call) async {
+        if (call.method == 'connect') {
+          messenger.handlePlatformMessage(
+            monitorStateListener.name,
+            monitorStateListener.codec.encodeSuccessEnvelope(false),
+            null,
+          );
+          return Future<Object?>(() => size);
+        }
+        return null;
+      });
+
+      expect(await display.connect(), isFalse);
+      expect(display.isConnected, isFalse);
+      expect(display.resolution, isNull);
+    });
+
+    test('no false during the call keeps the success', () async {
+      final display = ExternalDisplay();
+      addTearDown(display.dispose);
+      await emitMonitorEvent(true);
+      final gate = gateConnect();
+
+      final connecting = display.connect();
+      await pumpEventQueue();
+      // A plug event that is not an unplug changes nothing.
+      await emitMonitorEvent(true);
+      gate.complete(size);
+
+      expect(await connecting, isTrue);
+      expect(display.isConnected, isTrue);
+      expect(display.resolution, const Size(1920, 1080));
+    });
+
+    test('a false before the call starts does not touch its success',
+        () async {
+      final display = ExternalDisplay();
+      addTearDown(display.dispose);
+      await emitMonitorEvent(true);
+      await emitMonitorEvent(false);
+
+      expect(await display.connect(), isTrue);
+      expect(display.isConnected, isTrue);
+      expect(display.resolution, const Size(1920, 1080));
+    });
+
+    test('a false after the call returned clears it as before', () async {
+      final display = ExternalDisplay();
+      addTearDown(display.dispose);
+      await emitMonitorEvent(true);
+
+      expect(await display.connect(), isTrue);
+      await emitMonitorEvent(false);
+
+      expect(display.isConnected, isFalse);
+      expect(display.resolution, isNull);
+    });
+
+    test('a false during one instance\'s connect leaves another as today',
+        () async {
+      final first = ExternalDisplay();
+      addTearDown(first.dispose);
+      final second = ExternalDisplay();
+      addTearDown(second.dispose);
+      await emitMonitorEvent(true);
+      expect(await second.connect(), isTrue);
+      final gate = gateConnect();
+
+      final connecting = first.connect();
+      await pumpEventQueue();
+      await emitMonitorEvent(false);
+      gate.complete(size);
+
+      expect(await connecting, isFalse);
+      expect(first.isConnected, isFalse);
+      // What an unplug already did to the other instance: nothing more.
+      expect(second.isConnected, isFalse);
+      expect(second.resolution, isNull);
+      expect(second.isPlugging, isFalse);
+
+      // Its next connect, with no false during it, succeeds.
+      final secondGate = gateConnect();
+      final secondConnecting = second.connect();
+      await pumpEventQueue();
+      secondGate.complete(size);
+      expect(await secondConnecting, isTrue);
+      expect(second.isConnected, isTrue);
+      expect(first.isConnected, isFalse);
     });
   });
 
