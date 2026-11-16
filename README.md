@@ -182,7 +182,7 @@ externalDisplay.isPlugging
 externalDisplay.isConnected
 ```
 
-`isPlugging` follows the plug state the platform reports: whether an external display is attached (on macOS, whether the external window is open). `isConnected` belongs to this instance: `true` once its `connect()` succeeded, until a `disconnect()` or `destroyWindow()` that returns `true`, a failed `connect()`, or an unplug reported before `dispose()` clears it. `resolution` is set exactly while `isConnected` is `true`.
+`isPlugging` follows the plug state the platform reports: whether an external display is attached (on macOS, whether the external window is open). `isConnected` belongs to this instance: `true` once its `connect()` succeeded, until a `disconnect()` or `destroyWindow()` that returns `true`, a failed `connect()`, or an unplug reported before `dispose()` clears it. `resolution` is set exactly while `isConnected` is `true`. An unplug that reaches the instance while its `connect()` is still running makes that call return `false` and leaves `isConnected` `false`, even if the platform answered with a size: on iOS the unplug of a session that ended right after connecting can arrive before the result.
 
 ### Get the External Display Resolution
 
