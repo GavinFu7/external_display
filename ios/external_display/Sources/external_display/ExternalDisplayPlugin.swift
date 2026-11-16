@@ -110,7 +110,8 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
             }
         }
         tearDownExternalSession(notifyUnplug: false)
-        pendingConnectResult = nil
+        // Answer a connect still waiting for its scene instead of dropping it.
+        completePendingConnect(false)
         return true
     }
 
@@ -143,6 +144,8 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
 
         print("prepareExternalFlutterContent")
 
+        // A previous connect may still be waiting: answer it before replacing it.
+        completePendingConnect(false)
         pendingConnectResult = result
         prepareExternalFlutterContent(routeName: routeName)
 
