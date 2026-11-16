@@ -32,6 +32,7 @@ class Home extends StatefulWidget {
 
 class _HomeState extends State<Home> {
   List<String> screens = []; // screen info
+  List<ExternalDisplayInfo> displays = []; // displays with touch status
   String state = "Unplug"; // External display state
   String resolution = ""; // External display resolution
 
@@ -106,6 +107,27 @@ class _HomeState extends State<Home> {
                   },
                   child: const Text("Get Screen")),
             ),
+            // Button to list the displays with their touch status
+            Container(
+              height: 70,
+              alignment: Alignment.center,
+              child: TextButton(
+                  style: ButtonStyle(
+                    foregroundColor:
+                        WidgetStateProperty.all<Color>(Colors.blue),
+                  ),
+                  onPressed: () async {
+                    displays = await externalDisplay.getDisplays();
+                    setState(() {});
+                  },
+                  child: const Text("Get Displays")),
+            ),
+            // Show each display; touch is "unknown" when the platform cannot tell
+            for (final display in displays)
+              Text("${display.id}. ${display.name}"
+                  " [${display.width.toInt()}x${display.height.toInt()}]"
+                  "${display.isPrimary ? " (primary)" : ""}"
+                  " touch: ${display.hasTouch ?? "unknown"}"),
             // Button to create external display window
             Container(
               height: 70,

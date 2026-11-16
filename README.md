@@ -175,6 +175,32 @@ externalDisplay.removeStatusListener(onDisplayChange);
 final screens = await externalDisplay.getScreen(); // Future<List<String>>
 ```
 
+### Display Information
+
+`getDisplays()` lists the displays with their size and whether each one has a touchscreen:
+
+```dart
+final displays = await externalDisplay.getDisplays(); // Future<List<ExternalDisplayInfo>>
+for (final display in displays) {
+  print('${display.id} ${display.name} ${display.width}x${display.height} '
+      'primary: ${display.isPrimary} touch: ${display.hasTouch}');
+}
+```
+
+* `id`: the display ID on Android (pass an external display's `id` as `connect(targetScreen:)`), the screen index on iOS and macOS (pass it as `createWindow(targetScreen:)` on macOS).
+* `name`: the display name, or `''` when the platform has none.
+* `width` / `height`: the display size, in the same unit `connect()` reports on that platform.
+* `isPrimary`: `true` for the device's own (default) display.
+* `hasTouch`: `true` or `false` when the platform can tell whether the display has a touchscreen, `null` when it cannot. Treat `null` as "unknown", not as "no touch".
+
+| Platform | Listed | `hasTouch` | Size unit |
+| --- | --- | --- | --- |
+| Android | Every display `DisplayManager` reports, `id` = display ID | The touch setting Android computes for that display from the touch devices that can send input to it. For a display other than the default one, it needs Android 12L (API 32) or newer; on older versions it is `null`. Before Android 10, the default display's value covers the whole device. | Physical pixels |
+| iOS | One entry per screen, the device's own screen first, `id` = index | `true` for the device's own screen, `false` for external screens (iOS shows them as non-interactive); `null` for an iPhone or iPad app running on a Mac | Points on iOS 27+, pixels on iOS 15–26 |
+| macOS | One entry per screen, the screen with the menu bar first, `id` = index | Always `null` (macOS cannot tell) | Points |
+
+On Android the value is only as good as the device's input setup: a touch panel that the system has not tied to a display counts for every display.
+
 ### Get the Connection Status
 
 ```dart
