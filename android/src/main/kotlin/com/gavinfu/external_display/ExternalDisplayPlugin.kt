@@ -27,9 +27,9 @@ import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 private const val TAG = "ExternalDisplayPlugin"
 
 class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, ActivityAware {
-  var connectReturn : (() -> Unit)? = null
+  private val readyWaiters = ReadyWaiters()
   var mainViewEvents : EventChannel.EventSink? = null
-  var externalViewEvents : EventChannel.EventSink? = null
+  private val externalViewEvents = mutableMapOf<String, EventChannel.EventSink>()
 
   private lateinit var methodChannel : MethodChannel
   private lateinit var eventChannel : EventChannel
@@ -129,8 +129,7 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
       FlutterEngineCache.getInstance().remove(routeName)
     }
 
-    externalViewEvents = null
-    connectReturn = null
+    externalViewEvents.remove(routeName)
   }
 
   private fun tearDownAllSessions() {
@@ -240,12 +239,12 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
         flutterEngine.dartExecutor.binaryMessenger,
         "receiveParametersListener"
       )
-      receiveParameters.setStreamHandler(ExternalViewHandler(this))
+      receiveParameters.setStreamHandler(ExternalViewHandler(this, routeName, flutterEngine))
       val sendParameters = MethodChannel(
         flutterEngine.dartExecutor.binaryMessenger,
         "sendParameters"
       )
-      sendParameters.setMethodCallHandler(ExternalViewHandler(this))
+      sendParameters.setMethodCallHandler(ExternalViewHandler(this, routeName, flutterEngine))
 
       val flutterView = FlutterView(presentation.context)
       flutterView.attachToFlutterEngine(flutterEngine)
@@ -295,33 +294,31 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
       }
 
       "waitingTransferParametersReady" -> {
-        val handler = Handler(Looper.getMainLooper())
-        val sendFail = Runnable {
-          result.success(false)
-          connectReturn = null
-        }
-
-        fun returnResolution() {
-          handler.removeCallbacks(sendFail)
+        if (externalViewEvents.isNotEmpty()) {
           result.success(true)
-          connectReturn = null
-        }
-        connectReturn = ::returnResolution
-
-        if (externalViewEvents != null) {
-          connectReturn?.invoke()
         } else {
+          // Answered once: true when a view subscribes, false after this call's own timeout.
+          val handler = Handler(Looper.getMainLooper())
+          lateinit var sendFail: Runnable
+          val token = readyWaiters.add {
+            handler.removeCallbacks(sendFail)
+            result.success(true)
+          }
+          sendFail = Runnable {
+            if (readyWaiters.remove(token)) {
+              result.success(false)
+            }
+          }
           handler.postDelayed(sendFail, 10000)
         }
       }
 
       "sendParameters" -> {
-        if (externalViewEvents != null) {
-          externalViewEvents?.success(call.arguments)
-          result.success(true)
-        } else {
-          result.success(false)
+        val sinks = externalViewEvents.values.toList()
+        for (sink in sinks) {
+          sink.success(call.arguments)
         }
+        result.success(sinks.isNotEmpty())
       }
 
       else -> {
@@ -348,22 +345,45 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
     eventChannel.setStreamHandler(null)
     methodChannel.setMethodCallHandler(null)
   }
+
+  /** The external view of [routeName] subscribed; ignored once [engine]'s session has ended. */
+  internal fun onExternalViewListen(
+    routeName: String,
+    engine: FlutterEngine,
+    eventSink: EventChannel.EventSink
+  ) {
+    if (activeEngines[routeName] !== engine) {
+      return
+    }
+    externalViewEvents[routeName] = eventSink
+    readyWaiters.notifyReady()
+  }
+
+  /** The external view of [routeName] unsubscribed; leaves a newer session's sink alone. */
+  internal fun onExternalViewCancel(routeName: String, engine: FlutterEngine) {
+    if (activeEngines[routeName] === engine) {
+      externalViewEvents.remove(routeName)
+    }
+  }
 }
 
-class ExternalViewHandler(plugin: ExternalDisplayPlugin) : MethodCallHandler, StreamHandler {
+class ExternalViewHandler(
+  plugin: ExternalDisplayPlugin,
+  private val routeName: String,
+  private val engine: FlutterEngine
+) : MethodCallHandler, StreamHandler {
   private val externalDisplayPlugin = plugin
 
   override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
     externalDisplayPlugin.mainViewEvents?.success(call.arguments)
-    result.success(true)
+    result.success(externalDisplayPlugin.mainViewEvents != null)
   }
 
   override fun onListen(arguments: Any?, eventSink: EventChannel.EventSink) {
-    externalDisplayPlugin.externalViewEvents = eventSink
-    externalDisplayPlugin.connectReturn?.invoke()
+    externalDisplayPlugin.onExternalViewListen(routeName, engine, eventSink)
   }
 
   override fun onCancel(arguments: Any?) {
-    externalDisplayPlugin.externalViewEvents = null
+    externalDisplayPlugin.onExternalViewCancel(routeName, engine)
   }
 }
