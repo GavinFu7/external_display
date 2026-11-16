@@ -3,7 +3,6 @@ package com.gavinfu.external_display
 import android.app.Presentation
 import android.content.Context
 import android.hardware.display.DisplayManager
-import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.view.Display
@@ -50,7 +49,7 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
       for (routeName in routesToRemove) {
         tearDownSession(routeName)
       }
-      mainViewEvents?.success(displayManager.displays.size > 1)
+      mainViewEvents?.success(isPlugged())
     }
 
     override fun onDisplayChanged(p0: Int) {}
@@ -100,27 +99,43 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
     }
   }
 
+  private fun presentationDisplayIds(): List<Int> {
+    return displayManager.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION)
+      .map { it.displayId }
+  }
+
+  private fun allDisplayIds(): List<Int> {
+    return displayManager.displays.map { it.displayId }
+  }
+
+  private fun isPlugged(): Boolean {
+    return DisplaySelector.isPlugged(presentationDisplayIds(), allDisplayIds())
+  }
+
+  /** Physical pixel size of the display's current mode. */
+  private fun physicalSize(display: Display): Pair<Int, Int> {
+    return display.mode.physicalWidth to display.mode.physicalHeight
+  }
+
   override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
     when (call.method) {
       "getScreen" -> {
         val screens = displayManager.displays.map { display ->
-          "${display.displayId}. ${display.name} [${display.width}x${display.height}]"
+          val (width, height) = physicalSize(display)
+          "${display.displayId}. ${display.name} [${width}x${height}]"
         }.toList()
         result.success(screens)
       }
 
       "connect" -> {
-        if (displayManager.displays.size > 1) {
+        if (isPlugged()) {
           val routeName = MethodCallArgs.routeName(call.arguments)
-          var displayId = MethodCallArgs.targetScreen(call.arguments)
-          var display: Display? = null
-          if (displayId > 0) {
-            display = displayManager.getDisplay(displayId)
-          }
-          if (display == null && displayManager.displays.isNotEmpty()) {
-            display = displayManager.displays.last()
-            displayId = display.displayId
-          }
+          val displayId = DisplaySelector.choose(
+            MethodCallArgs.targetScreen(call.arguments),
+            presentationDisplayIds(),
+            allDisplayIds()
+          )
+          val display: Display? = displayId?.let { displayManager.getDisplay(it) }
           if (display != null) {
             // Reconnect / repeated connect must not stack Presentations or leak engines.
             tearDownSession(routeName)
@@ -144,17 +159,11 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
             FlutterEngineCache.getInstance().put(routeName, flutterEngine)
             activeEngines[routeName] = flutterEngine
 
-            val resolution: Map<String, Double> = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-              mapOf(
-                "width" to display.mode.physicalWidth.toDouble(),
-                "height" to display.mode.physicalHeight.toDouble()
-              )
-            } else {
-              mapOf(
-                "width" to display.width.toDouble(),
-                "height" to display.height.toDouble()
-              )
-            }
+            val (width, height) = physicalSize(display)
+            val resolution: Map<String, Double> = mapOf(
+              "width" to width.toDouble(),
+              "height" to height.toDouble()
+            )
 
             val receiveParameters = EventChannel(
               flutterEngine.dartExecutor.binaryMessenger,
@@ -239,7 +248,7 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
 
   override fun onListen(arguments: Any?, eventSink: EventChannel.EventSink) {
     mainViewEvents = eventSink
-    if (displayManager.displays.size > 1) {
+    if (isPlugged()) {
       eventSink.success(true)
     }
     displayManager.registerDisplayListener(displayListener, Handler(Looper.getMainLooper()))
