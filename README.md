@@ -195,7 +195,7 @@ for (final display in displays) {
 
 | Platform | Listed | `hasTouch` | Size unit |
 | --- | --- | --- | --- |
-| Android | Every display `DisplayManager` reports, `id` = display ID | The touch setting Android computes for that display from the touch devices that can send input to it. For a display other than the default one, it needs Android 12L (API 32) or newer; on older versions it is `null`. Before Android 10, the default display's value covers the whole device. | Physical pixels |
+| Android | Every display `DisplayManager` reports, `id` = display ID | From Android 12L (API 32): the touch setting Android computes for that display from the touch devices that can send input to it. Below 12L: `null` for every display except the default one, which reports the app's own configuration; while the app's activity is on another display, that can be the other display's value. Before Android 10, the default display's value covers the whole device. | Physical pixels |
 | iOS | One entry per screen, the device's own screen first, `id` = index | `true` for the device's own screen, `false` for external screens (iOS shows them as non-interactive); `null` for an iPhone or iPad app running on a Mac | Points on iOS 27+, pixels on iOS 15–26 |
 | macOS | One entry per screen, the screen with the menu bar first, `id` = index | Always `null` (macOS cannot tell) | Points |
 
