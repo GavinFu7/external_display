@@ -55,4 +55,36 @@ class ReadyWaitersTest {
     assertEquals(1, second)
     assertFalse(waiters.remove(token))
   }
+
+  @Test
+  fun cancelAllRunsOnCancelInsteadOfOnReadyAndClears() {
+    val waiters = ReadyWaiters()
+    var ready = 0
+    var cancelled = 0
+    val token = waiters.add({ ready++ }, { cancelled++ })
+    waiters.add { ready++ }
+
+    waiters.cancelAll()
+
+    assertEquals(0, ready)
+    assertEquals(1, cancelled)
+    assertEquals(0, waiters.size)
+    assertFalse(waiters.remove(token))
+    waiters.notifyReady()
+    assertEquals(0, ready)
+  }
+
+  @Test
+  fun notifyReadyAndRemoveNeverRunOnCancel() {
+    val waiters = ReadyWaiters()
+    var cancelled = 0
+    val removed = waiters.add({}, { cancelled++ })
+    waiters.add({}, { cancelled++ })
+
+    waiters.remove(removed)
+    waiters.notifyReady()
+    waiters.cancelAll()
+
+    assertEquals(0, cancelled)
+  }
 }

@@ -317,13 +317,20 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
         if (externalViewEvents.isNotEmpty()) {
           result.success(true)
         } else {
-          // Answered once: true when a view subscribes, false after this call's own timeout.
+          // Answered once: true when a view subscribes, false after this call's own timeout
+          // or when the plugin detaches first.
           val handler = Handler(Looper.getMainLooper())
           lateinit var sendFail: Runnable
-          val token = readyWaiters.add {
-            handler.removeCallbacks(sendFail)
-            result.success(true)
-          }
+          val token = readyWaiters.add(
+            {
+              handler.removeCallbacks(sendFail)
+              result.success(true)
+            },
+            {
+              handler.removeCallbacks(sendFail)
+              result.success(false)
+            }
+          )
           sendFail = Runnable {
             if (readyWaiters.remove(token)) {
               result.success(false)
@@ -361,6 +368,8 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
   override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
     displayManager.unregisterDisplayListener(displayListener)
     mainViewEvents = null
+    // Answer pending waiters now instead of replying to a destroyed engine later.
+    readyWaiters.cancelAll()
     tearDownAllSessions()
     eventChannel.setStreamHandler(null)
     methodChannel.setMethodCallHandler(null)
