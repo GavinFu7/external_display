@@ -110,29 +110,45 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
     methodChannel.setMethodCallHandler(this)
   }
 
-  /** Dismiss presentation, detach view, and destroy engine for [routeName]. */
+  /**
+   * Dismiss presentation, detach view, and destroy engine for [routeName]. Never throws: the
+   * route's entries are removed first, and every release step runs even if an earlier one fails.
+   */
   private fun tearDownSession(routeName: String) {
-    activeFlutterViews.remove(routeName)?.detachFromFlutterEngine()
-
-    activePresentations.remove(routeName)?.let { presentation ->
-      // Our own dismissal must not come back through the dismiss listener.
-      presentation.setOnDismissListener(null)
-      presentation.dismiss()
-      presentation.releaseIfNotShown()
-    }
+    val flutterView = activeFlutterViews.remove(routeName)
+    val presentation = activePresentations.remove(routeName)
+    val engine = activeEngines.remove(routeName)
     routeDisplayIds.remove(routeName)
     routeActivities.remove(routeName)
     routeResolutions.remove(routeName)
+    externalViewEvents.remove(routeName)
 
-    val engine = activeEngines.remove(routeName)
+    if (flutterView != null) {
+      releaseStep(routeName, "detach view") { flutterView.detachFromFlutterEngine() }
+    }
+    if (presentation != null) {
+      releaseStep(routeName, "dismiss") {
+        // Our own dismissal must not come back through the dismiss listener.
+        presentation.setOnDismissListener(null)
+        presentation.dismiss()
+      }
+      releaseStep(routeName, "release presentation") { presentation.releaseIfNotShown() }
+    }
     if (engine != null) {
-      engine.platformViewsController.detach()
-      engine.platformViewsController2.detach()
-      engine.destroy()
+      releaseStep(routeName, "detach platform views") { engine.platformViewsController.detach() }
+      releaseStep(routeName, "detach platform views 2") { engine.platformViewsController2.detach() }
+      releaseStep(routeName, "destroy engine") { engine.destroy() }
       FlutterEngineCache.getInstance().remove(routeName)
     }
+  }
 
-    externalViewEvents.remove(routeName)
+  /** Runs one release step of [routeName]'s teardown; a failure is logged, not thrown. */
+  private inline fun releaseStep(routeName: String, step: String, action: () -> Unit) {
+    try {
+      action()
+    } catch (e: Exception) {
+      Log.e(TAG, "teardown of route $routeName: $step failed", e)
+    }
   }
 
   private fun tearDownAllSessions() {
