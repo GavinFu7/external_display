@@ -179,7 +179,10 @@ final screens = await externalDisplay.getScreen(); // Future<List<String>>
 
 ```dart
 externalDisplay.isPlugging
+externalDisplay.isConnected
 ```
+
+`isPlugging` follows the plug state the platform reports: whether an external display is attached (on macOS, whether the external window is open). `isConnected` belongs to this instance: `true` once its `connect()` succeeded, until a `disconnect()` or `destroyWindow()` that returns `true`, a failed `connect()`, or an unplug reported before `dispose()` clears it. `resolution` is set exactly while `isConnected` is `true`.
 
 ### Get the External Display Resolution
 
@@ -224,7 +227,7 @@ externalDisplay.dispose();
 
 To remove only one listener, prefer `removeStatusListener` / `removeReceiveParameterListener` instead.
 
-You can also create your own `ExternalDisplay()` instances, for example one per page. Instances share one native subscription and the plug state (`isPlugging`), and disposing one does not affect the others. After the last live instance is disposed, the shared plug state resets: a new instance starts as not plugged until the platform reports the state again (Android and iOS report an attached display right after the new instance starts listening; macOS only reports when a window is created or closed). `resolution` and `isConnected` belong to the instance that called `connect`.
+You can also create your own `ExternalDisplay()` instances, for example one per page. Instances share one native subscription and the plug state (`isPlugging`), and disposing one does not affect the others. After the last live instance is disposed, the shared plug state resets: a new instance starts as not plugged until the platform reports the state again (Android and iOS report an attached display right after the new instance starts listening; macOS only reports when a window is created or closed). `resolution` and `isConnected` belong to the instance that called `connect`. Call `connect` and `disconnect` and read `resolution` and `isConnected` on the same instance: a `disconnect` on another instance does not clear them.
 
 ---
 
