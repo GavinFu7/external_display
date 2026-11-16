@@ -147,38 +147,26 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
             return
         }
 
-        print("connectWithSceneAccessory")
-
         // 開始新連線前先清掉舊 session
         tearDownExternalSession(notifyUnplug: false)
-
-        print("prepareExternalFlutterContent")
 
         // A previous connect may still be waiting: answer it before replacing it.
         completePendingConnect(false)
         pendingConnectResult = result
         prepareExternalFlutterContent(routeName: routeName)
 
-        print("prepareExternalFlutterContent done")
-
         // 啟用 accessory 後，系統會非同步連上外接 scene
         registration.isEnabled = true
 
-        print("registration.isEnabled = true")
-
         // 若 scene 已存在（例如已插著），直接掛載內容
         if let windowScene = findExternalWindowScene() {
-            print("findExternalWindowScene found")
             attachExternalContent(to: windowScene)
             return
         }
 
-        print("findExternalWindowScene done")
-
         // 啟用 accessory 後 scene 連線是非同步的，設定逾時避免永久等待
         pendingConnectTimeout?.cancel()
         let timeout = DispatchWorkItem {
-            print("timeout")
             guard let pending = pendingConnectResult else { return }
             pendingConnectResult = nil
             tearDownExternalSession(notifyUnplug: false)
