@@ -1,5 +1,6 @@
-import 'dart:async';
 import 'package:flutter/services.dart';
+
+import 'src/shared_event_channel.dart';
 
 /// 傳遞參數
 final transferParameters = TransferParameters();
@@ -11,42 +12,49 @@ typedef TransferParametersListener = void Function({
 });
 
 /// 提供 'TransferParameters' method.
+///
+/// Use it only in the external display entrypoint (`externalDisplayMain`).
+/// All instances in that isolate share one native subscription; disposing one
+/// instance does not affect the others.
 class TransferParameters {
   final Set<TransferParametersListener> _listeners = {};
-  StreamSubscription<dynamic>? _streamSubscription;
   bool _isDisposed = false;
 
   static const EventChannel _receiveParametersListener =
       EventChannel('receiveParametersListener');
   static const MethodChannel _sendParameters = MethodChannel('sendParameters');
+  static final SharedEventChannel<TransferParameters> _receiver =
+      SharedEventChannel<TransferParameters>(
+          _receiveParametersListener, _onReceiveEvent);
 
   /// 初始化 TransferParameters class
   TransferParameters() {
     // 開始監控原生端傳回的資料 - 是主頁面傳來的參數
-    _streamSubscription =
-        _receiveParametersListener.receiveBroadcastStream().listen((event) {
-      if (event is! Map) {
-        return;
-      }
-      for (var listener in _listeners) {
-        listener(action: event["action"] as String, value: event["value"]);
-      }
-    });
-
-    _finalizer.attach(this, _streamSubscription!, detach: this);
+    if (isSupportedPlatform) {
+      _receiver.attach(this);
+    }
   }
 
-  /// 如果 'TransferParameters' 不再可以使用
-  static final _finalizer =
-      Finalizer<StreamSubscription<dynamic>>((streamSubscription) {
-    // 停止監控原生端傳回的資料
-    streamSubscription.cancel();
-  });
+  static void _onReceiveEvent(Object? event) {
+    if (event is! Map) {
+      return;
+    }
+    final action = event["action"];
+    if (action is! String) {
+      return;
+    }
+    for (final transfer in _receiver.members) {
+      notifyEach(transfer._listeners,
+          (listener) => listener(action: action, value: event["value"]),
+          'a TransferParameters listener');
+    }
+  }
 
   /// 是否已釋放資源
   bool get isDisposed => _isDisposed;
 
-  /// 取消 EventChannel 訂閱並清除所有 listener。
+  /// Stops this instance's listeners; the native subscription shared with the
+  /// other instances is cancelled once the last one is disposed.
   ///
   /// 全域 [transferParameters] 會活到 process 結束；自行 `new` 的實例
   /// （例如外接頁）應在不再使用時呼叫此方法。
@@ -55,14 +63,15 @@ class TransferParameters {
       return;
     }
     _isDisposed = true;
-    _finalizer.detach(this);
-    _streamSubscription?.cancel();
-    _streamSubscription = null;
+    _receiver.detach(this);
     _listeners.clear();
   }
 
   /// 發送參數到主頁面
   Future<bool> sendParameters({required String action, dynamic value}) async {
+    if (!isSupportedPlatform) {
+      return false;
+    }
     final result = await _sendParameters.invokeMethod<dynamic>(
       'sendParameters',
       {"action": action, "value": value},
@@ -71,8 +80,12 @@ class TransferParameters {
   }
 
   /// 監控接收參數
+  ///
+  /// Listeners added after [dispose] are ignored.
   void addListener(TransferParametersListener listener) {
-    _listeners.add(listener);
+    if (!_isDisposed) {
+      _listeners.add(listener);
+    }
   }
 
   /// 取消接收參數
