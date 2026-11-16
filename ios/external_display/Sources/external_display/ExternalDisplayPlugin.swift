@@ -513,7 +513,12 @@ public class ExternalDisplaySendParameters: NSObject, FlutterPlugin {
     public static func register(with registrar: any FlutterPluginRegistrar) {}
 
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-        ExternalDisplayPlugin.mainViewEvents?(call.arguments)
+        // Without a listening main view the message is not delivered: reply false.
+        guard let events = ExternalDisplayPlugin.mainViewEvents else {
+            result(false)
+            return
+        }
+        events(call.arguments)
         result(true)
     }
 }
