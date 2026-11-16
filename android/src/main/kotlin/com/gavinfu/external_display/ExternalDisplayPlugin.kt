@@ -35,7 +35,7 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
   private lateinit var eventChannel : EventChannel
   private lateinit var context: Context
   private lateinit var displayManager : DisplayManager
-  private val activePresentations = mutableMapOf<String, Presentation>()
+  private val activePresentations = mutableMapOf<String, SessionPresentation>()
   private val activeEngines = mutableMapOf<String, FlutterEngine>()
   private val activeFlutterViews = mutableMapOf<String, FlutterView>()
   private val routeDisplayIds = mutableMapOf<String, Int>()
@@ -118,6 +118,7 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
       // Our own dismissal must not come back through the dismiss listener.
       presentation.setOnDismissListener(null)
       presentation.dismiss()
+      presentation.releaseIfNotShown()
     }
     routeDisplayIds.remove(routeName)
     routeActivities.remove(routeName)
@@ -210,7 +211,7 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
 
     try {
       // Views use the Presentation's display context; the engine needs only the application.
-      val presentation = Presentation(context, display)
+      val presentation = SessionPresentation(context, display)
       activePresentations[routeName] = presentation
       routeDisplayIds[routeName] = display.displayId
       (context as? Activity)?.let { routeActivities[routeName] = it }
@@ -388,5 +389,32 @@ class ExternalViewHandler(
 
   override fun onCancel(arguments: Any?) {
     externalDisplayPlugin.onExternalViewCancel(routeName, engine)
+  }
+}
+
+/**
+ * A Presentation that can undo its onStart() when show() throws: show() runs onStart(), which
+ * registers a display listener for the process lifetime, before adding the window, and
+ * dismiss() skips onStop() for a dialog that never became showing.
+ */
+private class SessionPresentation(outerContext: Context, display: Display) :
+  Presentation(outerContext, display) {
+  private var started = false
+
+  override fun onStart() {
+    super.onStart()
+    started = true
+  }
+
+  override fun onStop() {
+    started = false
+    super.onStop()
+  }
+
+  /** Runs the missing onStop() once if onStart() ran but the window never showed. */
+  fun releaseIfNotShown() {
+    if (started && !isShowing) {
+      onStop()
+    }
   }
 }
