@@ -54,8 +54,8 @@ final created = await externalDisplay.createWindow(
 
 * `title`: Window title (displayed in the title bar)
 * `fullscreen`: Whether to display in fullscreen mode
-* `width`: Window width (in pixels)
-* `height`: Window height (in pixels)
+* `width`: Window width (in points)
+* `height`: Window height (in points)
 * `targetScreen`: Display screen index (which screen to show the window on)
 
 #### Destroy Window (macOS-only)
