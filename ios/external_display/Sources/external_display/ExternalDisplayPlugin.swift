@@ -591,7 +591,6 @@ public class ExternalViewHandler: NSObject, FlutterStreamHandler {
     }
 
     public func onCancel(withArguments arguments: Any?) -> FlutterError? {
-        ExternalDisplayPlugin.receiveParameters?.setStreamHandler(nil)
         ExternalDisplayPlugin.externalViewEvents = nil
         return nil
     }

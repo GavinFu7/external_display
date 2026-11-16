@@ -285,7 +285,6 @@ public class ExternalViewHandler: NSObject, FlutterStreamHandler {
 
     // 外部顯示頁面 Flutter 的停止監控 swift 傳回的資料
     public func onCancel(withArguments arguments: Any?) -> FlutterError? {
-        ExternalDisplayPlugin.receiveParameters?.setStreamHandler(nil)
         ExternalDisplayPlugin.externalViewEvents = nil
         return nil
     }
