@@ -94,6 +94,10 @@ class ExternalDisplay {
   /// Returns an empty list when the native side does not answer with a list
   /// (an older native implementation answers `false`). Entries that are not
   /// maps are skipped.
+  ///
+  /// From Android 12L each call creates one window context per display, which
+  /// only garbage collection releases: call it on demand or when a display is
+  /// added or removed, not in a loop.
   Future<List<ExternalDisplayInfo>> getDisplays() async {
     final displays = await _displayController.invokeMethod<dynamic>(
       'getDisplays',

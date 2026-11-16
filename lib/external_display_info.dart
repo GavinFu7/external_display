@@ -41,7 +41,9 @@ class ExternalDisplayInfo {
   /// On Android and macOS it is the number [ExternalDisplay.getScreen] prints
   /// first, and it can be passed as `targetScreen` (to
   /// [ExternalDisplay.connect] on Android, to [ExternalDisplay.createWindow] on
-  /// macOS).
+  /// macOS). On iOS, [ExternalDisplay.connect] ignores `targetScreen`, and from
+  /// iOS 27 [ExternalDisplay.getScreen] numbers scenes rather than screens, so
+  /// its numbers can differ from [id].
   final int id;
 
   /// The display's name, or `''` when the platform has none.
@@ -55,7 +57,9 @@ class ExternalDisplayInfo {
   /// this platform.
   final double height;
 
-  /// Whether this is the device's own (default) display.
+  /// Whether this is the platform's main display: the default display on
+  /// Android, the device's own screen on iOS, and the screen with the menu bar
+  /// on macOS (which can be an external monitor).
   final bool isPrimary;
 
   /// Whether the display has a touchscreen: `true` or `false` when the

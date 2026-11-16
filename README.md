@@ -187,10 +187,10 @@ for (final display in displays) {
 }
 ```
 
-* `id`: the display ID on Android (pass an external display's `id` as `connect(targetScreen:)`), the screen index on iOS and macOS (pass it as `createWindow(targetScreen:)` on macOS).
+* `id`: on Android the display ID (pass an external display's `id` as `connect(targetScreen:)`); on iOS and macOS the screen index (macOS `createWindow(targetScreen:)` takes it). iOS `connect()` ignores `targetScreen`, and on iOS 27+ `getScreen()` numbers scenes rather than screens, so its numbers can differ from `id`.
 * `name`: the display name, or `''` when the platform has none.
 * `width` / `height`: the display size, in the same unit `connect()` reports on that platform.
-* `isPrimary`: `true` for the device's own (default) display.
+* `isPrimary`: `true` for the platform's main display: the default display on Android, the device's own screen on iOS, and the screen with the menu bar on macOS (which can be an external monitor).
 * `hasTouch`: `true` or `false` when the platform can tell whether the display has a touchscreen, `null` when it cannot. Treat `null` as "unknown", not as "no touch".
 
 | Platform | Listed | `hasTouch` | Size unit |
@@ -199,7 +199,9 @@ for (final display in displays) {
 | iOS | One entry per screen, the device's own screen first, `id` = index | `true` for the device's own screen, `false` for external screens (iOS shows them as non-interactive); `null` for an iPhone or iPad app running on a Mac | Points on iOS 27+, pixels on iOS 15–26 |
 | macOS | One entry per screen, the screen with the menu bar first, `id` = index | Always `null` (macOS cannot tell) | Points |
 
-On Android the value is only as good as the device's input setup: a touch panel that the system has not tied to a display counts for every display.
+On Android, `true` means Android can send a touchscreen's input to that display; it does not prove the panel is physically on that display. A touchscreen without an explicit display association is matched by type: a built-in one to the built-in display, a USB or Bluetooth one to the external display when there is one. A touch device that Android cannot match to any display counts for every display. The value is a snapshot: a USB touch controller that connects after the display reads `false` until you call `getDisplays()` again.
+
+From Android 12L, each call creates one window context per display, which only garbage collection releases. Call `getDisplays()` on demand or when a display is added or removed, not in a loop.
 
 ### Get the Connection Status
 
