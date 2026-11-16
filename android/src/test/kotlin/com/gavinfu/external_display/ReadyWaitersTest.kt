@@ -57,6 +57,23 @@ class ReadyWaitersTest {
   }
 
   @Test
+  fun waiterAddedDuringNotifyReadyWaitsForTheNextOne() {
+    val waiters = ReadyWaiters()
+    var late = 0
+    waiters.add { waiters.add { late++ } }
+
+    waiters.notifyReady()
+
+    assertEquals(0, late)
+    assertEquals(1, waiters.size)
+
+    waiters.notifyReady()
+
+    assertEquals(1, late)
+    assertEquals(0, waiters.size)
+  }
+
+  @Test
   fun cancelAllRunsOnCancelInsteadOfOnReadyAndClears() {
     val waiters = ReadyWaiters()
     var ready = 0

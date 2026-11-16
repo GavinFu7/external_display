@@ -190,15 +190,17 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
   }
 
   private fun connect(call: MethodCall, result: MethodChannel.Result) {
-    if (!isPlugged()) {
+    val presentationIds = presentationDisplayIds()
+    val allIds = allDisplayIds()
+    if (!DisplaySelector.isPlugged(presentationIds, allIds)) {
       result.success(false)
       return
     }
     val routeName = MethodCallArgs.routeName(call.arguments)
     val displayId = DisplaySelector.choose(
       MethodCallArgs.targetScreen(call.arguments),
-      presentationDisplayIds(),
-      allDisplayIds()
+      presentationIds,
+      allIds
     )
     val display: Display? = displayId?.let { displayManager.getDisplay(it) }
     if (display == null) {
