@@ -163,6 +163,8 @@ void onDisplayChange(bool connecting) { /* ... */ }
 externalDisplay.addStatusListener(onDisplayChange);
 ```
 
+On Android, the listener receives `false` and then `true` when Android or the host Activity ends a running session while the display stays attached (for example Android dismisses the external window, or the Activity is destroyed or recreated). The external view is gone by then: call `connect` again to show it.
+
 ### Cancel External Display Monitoring
 
 ```dart
@@ -198,12 +200,14 @@ final connected = await externalDisplay.connect(
 
 Returns `true` when connected and `resolution` is updated; otherwise `false`.
 
+On Android, `connect` for a `routeName` whose view is already showing on the chosen display keeps that view running and returns `true` with its resolution; it does not restart it. To restart the view, call `disconnect` first.
+
 **Parameters:**
 
 * `routeName`: Works with Flutter's MaterialApp `routes` / `onGenerateRoute` to choose which route to show on the external display.
 > ⚠️ Not recommended for use (this parameter has no effect on macOS).
 
-* `targetScreen`: Specifies which display screen to use (defaults to the last connected screen).
+* `targetScreen`: The ID of the display to use. By default Android picks the first presentation display it reports or, when it reports none, the last display other than the default display (ID `0`). An ID that is `0` or below, or that is not a current display, is ignored and the default applies.
 > ⚠️ Android-only parameter (has no effect on other platforms).
 
 ### Disconnecting from the External Display
