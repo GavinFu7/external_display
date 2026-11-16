@@ -115,6 +115,10 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
                 }
                 result(screenInfos)
             
+            // One entry per screen; AppKit cannot tell whether a screen has touch
+            case "getDisplays":
+                result(ExternalDisplayPlugin.displayInfos())
+
             // 連結外部顯示器
             case "createWindow":
                 let args = call.arguments as? Dictionary<String, Any>
@@ -288,5 +292,27 @@ public class ExternalViewHandler: NSObject, FlutterStreamHandler {
         ExternalDisplayPlugin.receiveParameters?.setStreamHandler(nil)
         ExternalDisplayPlugin.externalViewEvents = nil
         return nil
+    }
+}
+
+// MARK: - Display information
+
+extension ExternalDisplayPlugin {
+    /// One entry per `NSScreen.screens` index, in the order `getScreen` uses;
+    /// index 0 is the screen with the menu bar.
+    ///
+    /// `hasTouch` is `nil` because AppKit cannot tell whether a screen has a
+    /// touchscreen. Sizes are `frame` sizes in points, as `getScreen` reports.
+    static func displayInfos() -> [[String: Any]] {
+        return NSScreen.screens.enumerated().map { index, screen in
+            [
+                "id": index,
+                "name": screen.localizedName,
+                "width": Double(screen.frame.width),
+                "height": Double(screen.frame.height),
+                "isPrimary": index == 0,
+                "hasTouch": NSNull(),
+            ]
+        }
     }
 }
