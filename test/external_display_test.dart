@@ -438,6 +438,27 @@ void main() {
       expect(second.isPlugging, isFalse);
     });
 
+    test('false then true back to back ends the connection, stays plugged',
+        () async {
+      final display = ExternalDisplay();
+      addTearDown(display.dispose);
+      final events = <bool>[];
+      display.addStatusListener(events.add);
+      await emitMonitorEvent(true);
+      expect(await display.connect(), isTrue);
+      events.clear();
+
+      // A native side that ends a session while the display stays attached
+      // reports false and the current plug state without a gap.
+      monitorEvents!.success(false);
+      monitorEvents!.success(true);
+      await pumpEventQueue();
+
+      expect(events, [false, true]);
+      expect(display.isConnected, isFalse);
+      expect(display.isPlugging, isTrue);
+    });
+
     test('disconnect and destroyWindow clear isConnected', () async {
       final display = ExternalDisplay();
       addTearDown(display.dispose);
