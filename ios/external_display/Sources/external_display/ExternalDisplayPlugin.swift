@@ -54,6 +54,10 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
             // 回傳目前可用螢幕資訊
             result(Self.screenInfos())
 
+        case "getDisplays":
+            // One entry per screen, with whether it has a touchscreen
+            result(Self.displayInfos())
+
         case "connect":
             // 連接到外接螢幕並啟動外接 Flutter 內容
             Self.connect(call: call, result: result)
@@ -594,5 +598,37 @@ public class ExternalViewHandler: NSObject, FlutterStreamHandler {
         ExternalDisplayPlugin.receiveParameters?.setStreamHandler(nil)
         ExternalDisplayPlugin.externalViewEvents = nil
         return nil
+    }
+}
+
+// MARK: - Display information
+
+extension ExternalDisplayPlugin {
+    /// One entry per `UIScreen.screens` index; index 0 is the device's own screen.
+    ///
+    /// The device's own screen has a touchscreen; external screens do not (iOS
+    /// shows them as non-interactive). An iPhone or iPad app running on a Mac
+    /// cannot tell, so every screen reports `nil` there. Sizes use the unit
+    /// `connect` reports: points on iOS 27+ (the scene path), pixels before
+    /// (the `UIScreen` path).
+    static func displayInfos() -> [[String: Any]] {
+        let onMac = ProcessInfo.processInfo.isiOSAppOnMac
+        return UIScreen.screens.enumerated().map { index, screen in
+            let size: CGSize
+            if #available(iOS 27.0, *) {
+                size = screen.bounds.size
+            } else {
+                size = screen.nativeBounds.size
+            }
+            let hasTouch: Any = onMac ? NSNull() : (index == 0)
+            return [
+                "id": index,
+                "name": "",
+                "width": Double(size.width),
+                "height": Double(size.height),
+                "isPrimary": index == 0,
+                "hasTouch": hasTouch,
+            ]
+        }
     }
 }

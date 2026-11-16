@@ -54,8 +54,8 @@ final created = await externalDisplay.createWindow(
 
 * `title`: Window title (displayed in the title bar)
 * `fullscreen`: Whether to display in fullscreen mode
-* `width`: Window width (in pixels)
-* `height`: Window height (in pixels)
+* `width`: Window width (in points)
+* `height`: Window height (in points)
 * `targetScreen`: Display screen index (which screen to show the window on)
 
 #### Destroy Window (macOS-only)
@@ -174,6 +174,34 @@ externalDisplay.removeStatusListener(onDisplayChange);
 ```dart
 final screens = await externalDisplay.getScreen(); // Future<List<String>>
 ```
+
+### Display Information
+
+`getDisplays()` lists the displays with their size and whether each one has a touchscreen:
+
+```dart
+final displays = await externalDisplay.getDisplays(); // Future<List<ExternalDisplayInfo>>
+for (final display in displays) {
+  print('${display.id} ${display.name} ${display.width}x${display.height} '
+      'primary: ${display.isPrimary} touch: ${display.hasTouch}');
+}
+```
+
+* `id`: on Android the display ID (pass an external display's `id` as `connect(targetScreen:)`); on iOS and macOS the screen index (macOS `createWindow(targetScreen:)` takes it). iOS `connect()` ignores `targetScreen`, and on iOS 27+ `getScreen()` numbers scenes rather than screens, so its numbers can differ from `id`.
+* `name`: the display name, or `''` when the platform has none.
+* `width` / `height`: the display size, in the same unit `connect()` reports on that platform.
+* `isPrimary`: `true` for the platform's main display: the default display on Android, the device's own screen on iOS, and the screen with the menu bar on macOS (which can be an external monitor).
+* `hasTouch`: `true` or `false` when the platform can tell whether the display has a touchscreen, `null` when it cannot. Treat `null` as "unknown", not as "no touch".
+
+| Platform | Listed | `hasTouch` | Size unit |
+| --- | --- | --- | --- |
+| Android | Every display `DisplayManager` reports, `id` = display ID | From Android 12L (API 32): the touch setting Android computes for that display from the touch devices that can send input to it. Below 12L: `null` for every display except the default one, which reports the app's own configuration; while the app's activity is on another display, that can be the other display's value. Before Android 10, the default display's value covers the whole device. | Physical pixels |
+| iOS | One entry per screen, the device's own screen first, `id` = index | `true` for the device's own screen, `false` for external screens (iOS shows them as non-interactive); `null` for an iPhone or iPad app running on a Mac | Points on iOS 27+, pixels on iOS 15–26 |
+| macOS | One entry per screen, the screen with the menu bar first, `id` = index | Always `null` (macOS cannot tell) | Points |
+
+On Android, `true` means Android can send a touchscreen's input to that display; it does not prove the panel is physically on that display. A touchscreen without an explicit display association is matched by type: a built-in one to the built-in display, a USB or Bluetooth one to the external display when there is one. A touch device that Android cannot match to any display counts for every display. The value is a snapshot: a USB touch controller that connects after the display reads `false` until you call `getDisplays()` again.
+
+From Android 12L, each call creates one window context per display, which only garbage collection releases. Call `getDisplays()` on demand or when a display is added or removed, not in a loop.
 
 ### Get the Connection Status
 

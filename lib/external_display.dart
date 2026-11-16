@@ -1,6 +1,10 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
 
+import 'external_display_info.dart';
+
+export 'external_display_info.dart';
+
 /// 外接顯示器
 final externalDisplay = ExternalDisplay();
 
@@ -82,6 +86,29 @@ class ExternalDisplay {
   Future<List<String>> getScreen() async {
     final screens = await _displayController.invokeMethod<List<dynamic>>('getScreen');
     return screens?.cast<String>() ?? const <String>[];
+  }
+
+  /// Lists the displays the platform reports, with whether each one has a
+  /// touchscreen ([ExternalDisplayInfo.hasTouch]).
+  ///
+  /// Returns an empty list when the native side does not answer with a list
+  /// (an older native implementation answers `false`). Entries that are not
+  /// maps are skipped.
+  ///
+  /// From Android 12L each call creates one window context per display, which
+  /// only garbage collection releases: call it on demand or when a display is
+  /// added or removed, not in a loop.
+  Future<List<ExternalDisplayInfo>> getDisplays() async {
+    final displays = await _displayController.invokeMethod<dynamic>(
+      'getDisplays',
+    );
+    if (displays is! List) {
+      return const <ExternalDisplayInfo>[];
+    }
+    return <ExternalDisplayInfo>[
+      for (final display in displays)
+        if (display is Map) ExternalDisplayInfo.fromMap(display),
+    ];
   }
 
   /// 建立外接顯示器頁面, 只供 macOS 使用。
