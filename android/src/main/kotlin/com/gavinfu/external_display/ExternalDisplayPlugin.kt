@@ -125,6 +125,8 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
 
     val engine = activeEngines.remove(routeName)
     if (engine != null) {
+      engine.platformViewsController.detach()
+      engine.platformViewsController2.detach()
       engine.destroy()
       FlutterEngineCache.getInstance().remove(routeName)
     }
@@ -227,7 +229,8 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
       flutterEngine.dartExecutor.executeDartEntrypoint(entrypoint)
       flutterEngine.lifecycleChannel.appIsResumed()
 
-      flutterEngine.platformViewsController.attach(
+      // Only the delegator installs the platform-views channel handler (Flutter 3.38+).
+      flutterEngine.platformViewsControllerDelegator.attach(
         presentation.context,
         flutterEngine.renderer,
         flutterEngine.dartExecutor
