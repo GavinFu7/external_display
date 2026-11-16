@@ -132,7 +132,7 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
         presentation.setOnDismissListener(null)
         presentation.dismiss()
       }
-      releaseStep(routeName, "release presentation") { presentation.releaseIfNotShown() }
+      releaseStep(routeName, "stop presentation") { presentation.stopIfStarted() }
     }
     if (engine != null) {
       releaseStep(routeName, "detach platform views") { engine.platformViewsController.detach() }
@@ -420,9 +420,10 @@ class ExternalViewHandler(
 }
 
 /**
- * A Presentation that can undo its onStart() when show() throws: show() runs onStart(), which
- * registers a display listener for the process lifetime, before adding the window, and
- * dismiss() skips onStop() for a dialog that never became showing.
+ * A Presentation that can run a missing onStop(). show() runs onStart(), which registers a
+ * display listener for the process lifetime, before adding the window; dismiss() runs onStop()
+ * only when the window was added and is not destroyed. isShowing() cannot tell: it reads the
+ * decor's visibility, which stays VISIBLE after a show() that threw.
  */
 private class SessionPresentation(outerContext: Context, display: Display) :
   Presentation(outerContext, display) {
@@ -438,9 +439,9 @@ private class SessionPresentation(outerContext: Context, display: Display) :
     super.onStop()
   }
 
-  /** Runs the missing onStop() once if onStart() ran but the window never showed. */
-  fun releaseIfNotShown() {
-    if (started && !isShowing) {
+  /** After dismiss(): runs onStop() if onStart() ran and no onStop() followed. */
+  fun stopIfStarted() {
+    if (started) {
       onStop()
     }
   }
