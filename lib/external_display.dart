@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
 
+import 'src/shared_event_channel.dart';
+
 /// 外接顯示器
 final externalDisplay = ExternalDisplay();
 
@@ -14,12 +16,15 @@ typedef ExternalDisplayParameterListener = void Function({
 });
 
 /// 提供 'ExternalDisplay' method
+///
+/// All instances in an isolate share one native subscription and the plug
+/// state; disposing one instance does not affect the others.
 class ExternalDisplay {
   final Set<ExternalDisplayStatusListener> _statusListeners = {};
   final Set<ExternalDisplayParameterListener> _receiveParameterListeners = {};
-  bool _isPlugging = false;
+  // Shared by every instance: the last plug state the platform reported.
+  static bool _isPlugging = false;
   Size? _currentResolution;
-  StreamSubscription<dynamic>? _streamSubscription;
   bool _isDisposed = false;
 
   static const MethodChannel _displayController =
@@ -27,41 +32,81 @@ class ExternalDisplay {
   static const EventChannel _monitorStateListener =
       EventChannel('monitorStateListener');
 
+  // While no instance is live nothing observes the display, so the plug state
+  // is forgotten until the platform reports it again: Android and iOS report
+  // an attached display right after a listen, macOS when a window is created
+  // or closed.
+  static final SharedEventChannel<ExternalDisplay> _monitor =
+      SharedEventChannel<ExternalDisplay>(
+    _monitorStateListener,
+    _onMonitorEvent,
+    onStop: () => _isPlugging = false,
+  );
+
   /// 初始化 ExternalDisplay class
   ExternalDisplay() {
     // 監控原生端傳回的資料
-    _streamSubscription =
-        _monitorStateListener.receiveBroadcastStream().listen((event) {
-      if (event is bool) {
-        // 如果傳回值是 Boolean, 是顯示器插拔的狀態
-        if (_isPlugging != event) {
-          _isPlugging = event;
-          for (var listener in _statusListeners) {
-            listener(event);
+    if (isSupportedPlatform) {
+      _monitor.attach(this);
+      if (_isPlugging) {
+        // On Android and iOS each instance used to receive the native initial
+        // `true` after its own listen. The shared subscription already had
+        // it, so repeat it once for this instance unless it is disposed or
+        // unplugged first.
+        scheduleMicrotask(() {
+          if (!_isDisposed && _isPlugging) {
+            notifyEach(_statusListeners, (listener) => listener(true),
+                'an ExternalDisplay status listener');
           }
-        }
-      } else if (event is Map) {
-        // 其他, 是外部顯示頁面傳回的參數
-        for (var listener in _receiveParameterListeners) {
-          listener(action: event["action"] as String, value: event["value"]);
-        }
+        });
       }
-    });
-
-    _finalizer.attach(this, _streamSubscription!, detach: this);
+    }
   }
 
-  /// 如果 'ExternalDisplay' 不再可以使用
-  static final _finalizer =
-      Finalizer<StreamSubscription<dynamic>>((streamSubscription) {
-    // 停止監控原生端傳回的資料
-    streamSubscription.cancel();
-  });
+  static void _onMonitorEvent(Object? event) {
+    if (event is bool) {
+      // 如果傳回值是 Boolean, 是顯示器插拔的狀態
+      if (!event) {
+        for (final display in _monitor.members) {
+          display._currentResolution = null;
+        }
+      }
+      if (_isPlugging != event) {
+        _isPlugging = event;
+        for (final display in _monitor.members) {
+          notifyEach(display._statusListeners, (listener) => listener(event),
+              'an ExternalDisplay status listener');
+        }
+      }
+    } else if (event is Map) {
+      // 其他, 是外部顯示頁面傳回的參數
+      final action = event["action"];
+      if (action is! String) {
+        return;
+      }
+      for (final display in _monitor.members) {
+        notifyEach(display._receiveParameterListeners,
+            (listener) => listener(action: action, value: event["value"]),
+            'an ExternalDisplay parameter listener');
+      }
+    }
+  }
+
+  /// Calls [method] on the native side, or returns `null` without touching
+  /// the channel on a platform the plugin does not support.
+  static Future<T?> _invoke<T>(String method, [dynamic arguments]) async {
+    if (!isSupportedPlatform) {
+      return null;
+    }
+    return _displayController.invokeMethod<T>(method, arguments);
+  }
 
   /// 是否已釋放資源
   bool get isDisposed => _isDisposed;
 
-  /// 取消 EventChannel 訂閱並清除所有 listener。
+  /// Stops this instance's listeners; the native subscription shared with the
+  /// other instances is cancelled once the last one is disposed, and the
+  /// shared [isPlugging] is reset.
   ///
   /// 全域 [externalDisplay] 會活到 process 結束，若不再需要監聽插拔／參數，
   /// 應呼叫此方法；僅移除單一 listener 時請用 [removeStatusListener] /
@@ -71,16 +116,14 @@ class ExternalDisplay {
       return;
     }
     _isDisposed = true;
-    _finalizer.detach(this);
-    _streamSubscription?.cancel();
-    _streamSubscription = null;
+    _monitor.detach(this);
     _statusListeners.clear();
     _receiveParameterListeners.clear();
   }
 
   /// 取得顯示器列表
   Future<List<String>> getScreen() async {
-    final screens = await _displayController.invokeMethod<List<dynamic>>('getScreen');
+    final screens = await _invoke<List<dynamic>>('getScreen');
     return screens?.cast<String>() ?? const <String>[];
   }
 
@@ -94,7 +137,7 @@ class ExternalDisplay {
     int? height,
     int? targetScreen,
   }) async {
-    final result = await _displayController.invokeMethod<dynamic>(
+    final result = await _invoke<dynamic>(
       'createWindow',
       {
         "title": title,
@@ -112,7 +155,7 @@ class ExternalDisplay {
   /// Returns `true` when a window was destroyed.
   Future<bool> destroyWindow() async {
     final result =
-        await _displayController.invokeMethod<dynamic>('destroyWindow');
+        await _invoke<dynamic>('destroyWindow');
     if (result == true) {
       _currentResolution = null;
     }
@@ -124,7 +167,7 @@ class ExternalDisplay {
   /// Returns `true` when connected and [resolution] was updated; otherwise
   /// `false` and [resolution] is cleared.
   Future<bool> connect({String? routeName, int? targetScreen}) async {
-    final size = await _displayController.invokeMethod<dynamic>(
+    final size = await _invoke<dynamic>(
       'connect',
       {"routeName": routeName, "targetScreen": targetScreen},
     );
@@ -144,7 +187,7 @@ class ExternalDisplay {
   ///
   /// Returns `true` when the native side reports success.
   Future<bool> disconnect({String? routeName}) async {
-    final result = await _displayController.invokeMethod<dynamic>(
+    final result = await _invoke<dynamic>(
       'disconnect',
       {"routeName": routeName},
     );
@@ -162,9 +205,8 @@ class ExternalDisplay {
     VoidCallback? onReady,
     VoidCallback? onError,
   }) async {
-    final ready = await _displayController
-            .invokeMethod<dynamic>('waitingTransferParametersReady') ==
-        true;
+    final ready =
+        await _invoke<dynamic>('waitingTransferParametersReady') == true;
     if (ready) {
       onReady?.call();
     } else {
@@ -178,6 +220,11 @@ class ExternalDisplay {
     return _currentResolution;
   }
 
+  /// Whether [connect] succeeded on this instance and neither [disconnect],
+  /// [destroyWindow], a failed [connect] nor an unplug seen before [dispose]
+  /// has cleared it since: `true` exactly while [resolution] is set.
+  bool get isConnected => _currentResolution != null;
+
   /// 取得顯示器插拔的狀態
   bool get isPlugging {
     return _isPlugging;
@@ -185,7 +232,7 @@ class ExternalDisplay {
 
   /// 發送參數到外部顯示頁面
   Future<bool> sendParameters({required String action, dynamic value}) async {
-    final result = await _displayController.invokeMethod<dynamic>(
+    final result = await _invoke<dynamic>(
       'sendParameters',
       {"action": action, "value": value},
     );
@@ -193,8 +240,15 @@ class ExternalDisplay {
   }
 
   /// 監控外接顯示器的插拔
+  ///
+  /// If [isPlugging] is already `true` when this instance is created,
+  /// listeners added synchronously right after construction receive `true`
+  /// once; a listener added later (for example after an `await`) should read
+  /// [isPlugging] instead. Listeners added after [dispose] are ignored.
   void addStatusListener(ExternalDisplayStatusListener listener) {
-    _statusListeners.add(listener);
+    if (!_isDisposed) {
+      _statusListeners.add(listener);
+    }
   }
 
   /// 取消外接顯示器插拔的監控
@@ -203,8 +257,12 @@ class ExternalDisplay {
   }
 
   /// 監控接收參數
+  ///
+  /// Listeners added after [dispose] are ignored.
   void addReceiveParameterListener(ExternalDisplayParameterListener listener) {
-    _receiveParameterListeners.add(listener);
+    if (!_isDisposed) {
+      _receiveParameterListeners.add(listener);
+    }
   }
 
   /// 取消接收參數
