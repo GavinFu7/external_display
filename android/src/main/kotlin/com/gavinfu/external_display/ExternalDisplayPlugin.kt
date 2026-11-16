@@ -1,11 +1,12 @@
 package com.gavinfu.external_display
 
+import android.app.Activity
 import android.app.Presentation
 import android.content.Context
 import android.hardware.display.DisplayManager
-import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.Display
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -23,19 +24,23 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 
+private const val TAG = "ExternalDisplayPlugin"
+
 class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, ActivityAware {
-  var connectReturn : (() -> Unit)? = null
+  private val readyWaiters = ReadyWaiters()
   var mainViewEvents : EventChannel.EventSink? = null
-  var externalViewEvents : EventChannel.EventSink? = null
+  private val externalViewEvents = mutableMapOf<String, EventChannel.EventSink>()
 
   private lateinit var methodChannel : MethodChannel
   private lateinit var eventChannel : EventChannel
   private lateinit var context: Context
   private lateinit var displayManager : DisplayManager
-  private val activePresentations = mutableMapOf<String, Presentation>()
+  private val activePresentations = mutableMapOf<String, SessionPresentation>()
   private val activeEngines = mutableMapOf<String, FlutterEngine>()
   private val activeFlutterViews = mutableMapOf<String, FlutterView>()
   private val routeDisplayIds = mutableMapOf<String, Int>()
+  private val routeActivities = mutableMapOf<String, Activity>()
+  private val routeResolutions = mutableMapOf<String, Map<String, Double>>()
 
   private val displayListener = object : DisplayManager.DisplayListener {
     override fun onDisplayAdded(displayId: Int) {
@@ -50,24 +55,53 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
       for (routeName in routesToRemove) {
         tearDownSession(routeName)
       }
-      mainViewEvents?.success(displayManager.displays.size > 1)
+      if (routesToRemove.isNotEmpty()) {
+        sendSessionEnded()
+      } else {
+        mainViewEvents?.success(isPlugged())
+      }
     }
 
     override fun onDisplayChanged(p0: Int) {}
   }
 
-  override fun onDetachedFromActivityForConfigChanges() {}
-  override fun onDetachedFromActivity() {}
-  override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {}
+  override fun onDetachedFromActivityForConfigChanges() {
+    releaseActivity()
+  }
+  override fun onDetachedFromActivity() {
+    releaseActivity()
+  }
+  override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {
+    context = binding.activity
+  }
   override fun onAttachedToActivity(binding: ActivityPluginBinding) {
     context = binding.activity
-    displayManager = context.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+  }
+
+  /** Ends the sessions shown through the leaving Activity; later ones use the application. */
+  private fun releaseActivity() {
+    val activity = context as? Activity ?: return
+    context = activity.applicationContext
+    val routes = routeActivities.filterValues { it === activity }.keys.toList()
+    for (routeName in routes) {
+      tearDownSession(routeName)
+    }
+    if (routes.isNotEmpty()) {
+      sendSessionEnded()
+    }
+  }
+
+  /** A session ended without disconnect/connect asking: report unplugged, then the plug state. */
+  private fun sendSessionEnded() {
+    mainViewEvents?.success(false)
+    mainViewEvents?.success(isPlugged())
   }
 
   override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
     context = flutterPluginBinding.applicationContext
     displayManager = flutterPluginBinding.applicationContext.getSystemService(Context.DISPLAY_SERVICE) as
               DisplayManager
+    displayManager.registerDisplayListener(displayListener, Handler(Looper.getMainLooper()))
 
     eventChannel = EventChannel(flutterPluginBinding.binaryMessenger, "monitorStateListener")
     eventChannel.setStreamHandler(this)
@@ -76,21 +110,45 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
     methodChannel.setMethodCallHandler(this)
   }
 
-  /** Dismiss presentation, detach view, and destroy engine for [routeName]. */
+  /**
+   * Dismiss presentation, detach view, and destroy engine for [routeName]. Never throws: the
+   * route's entries are removed first, and every release step runs even if an earlier one fails.
+   */
   private fun tearDownSession(routeName: String) {
-    activeFlutterViews.remove(routeName)?.detachFromFlutterEngine()
-
-    activePresentations.remove(routeName)?.dismiss()
-    routeDisplayIds.remove(routeName)
-
+    val flutterView = activeFlutterViews.remove(routeName)
+    val presentation = activePresentations.remove(routeName)
     val engine = activeEngines.remove(routeName)
+    routeDisplayIds.remove(routeName)
+    routeActivities.remove(routeName)
+    routeResolutions.remove(routeName)
+    externalViewEvents.remove(routeName)
+
+    if (flutterView != null) {
+      releaseStep(routeName, "detach view") { flutterView.detachFromFlutterEngine() }
+    }
+    if (presentation != null) {
+      releaseStep(routeName, "dismiss") {
+        // Our own dismissal must not come back through the dismiss listener.
+        presentation.setOnDismissListener(null)
+        presentation.dismiss()
+      }
+      releaseStep(routeName, "stop presentation") { presentation.stopIfStarted() }
+    }
     if (engine != null) {
-      engine.destroy()
+      releaseStep(routeName, "detach platform views") { engine.platformViewsController.detach() }
+      releaseStep(routeName, "detach platform views 2") { engine.platformViewsController2.detach() }
+      releaseStep(routeName, "destroy engine") { engine.destroy() }
       FlutterEngineCache.getInstance().remove(routeName)
     }
+  }
 
-    externalViewEvents = null
-    connectReturn = null
+  /** Runs one release step of [routeName]'s teardown; a failure is logged, not thrown. */
+  private inline fun releaseStep(routeName: String, step: String, action: () -> Unit) {
+    try {
+      action()
+    } catch (e: Exception) {
+      Log.e(TAG, "teardown of route $routeName: $step failed", e)
+    }
   }
 
   private fun tearDownAllSessions() {
@@ -100,135 +158,196 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
     }
   }
 
+  private fun presentationDisplayIds(): List<Int> {
+    return displayManager.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION)
+      .map { it.displayId }
+  }
+
+  private fun allDisplayIds(): List<Int> {
+    return displayManager.displays.map { it.displayId }
+  }
+
+  private fun isPlugged(): Boolean {
+    return DisplaySelector.isPlugged(presentationDisplayIds(), allDisplayIds())
+  }
+
+  /** Physical pixel size of the display's current mode. */
+  private fun physicalSize(display: Display): Pair<Int, Int> {
+    return display.mode.physicalWidth to display.mode.physicalHeight
+  }
+
+  /** Android closed [presentation] itself, not [tearDownSession]: end its session. */
+  private fun onPresentationDismissed(routeName: String, presentation: Presentation) {
+    if (activePresentations[routeName] !== presentation) {
+      return
+    }
+    tearDownSession(routeName)
+    sendSessionEnded()
+  }
+
+  private fun hasSession(routeName: String): Boolean {
+    return activePresentations.containsKey(routeName) || activeEngines.containsKey(routeName)
+  }
+
+  private fun connect(call: MethodCall, result: MethodChannel.Result) {
+    val presentationIds = presentationDisplayIds()
+    val allIds = allDisplayIds()
+    if (!DisplaySelector.isPlugged(presentationIds, allIds)) {
+      result.success(false)
+      return
+    }
+    val routeName = MethodCallArgs.routeName(call.arguments)
+    val displayId = DisplaySelector.choose(
+      MethodCallArgs.targetScreen(call.arguments),
+      presentationIds,
+      allIds
+    )
+    val display: Display? = displayId?.let { displayManager.getDisplay(it) }
+    if (display == null) {
+      result.success(false)
+      return
+    }
+
+    val running = routeResolutions[routeName]
+    if (running != null &&
+      activePresentations[routeName]?.isShowing == true &&
+      routeDisplayIds[routeName] == display.displayId
+    ) {
+      // Connecting again to the same display keeps the running session.
+      result.success(running)
+      return
+    }
+
+    // Reconnect / repeated connect must not stack Presentations or leak engines.
+    tearDownSession(routeName)
+
+    val (width, height) = physicalSize(display)
+    val resolution: Map<String, Double> = mapOf(
+      "width" to width.toDouble(),
+      "height" to height.toDouble()
+    )
+
+    try {
+      // Views use the Presentation's display context; the engine needs only the application.
+      val presentation = SessionPresentation(context, display)
+      activePresentations[routeName] = presentation
+      routeDisplayIds[routeName] = display.displayId
+      (context as? Activity)?.let { routeActivities[routeName] = it }
+      // Back must not close the second screen; any other dismissal ends the session.
+      presentation.setCancelable(false)
+      presentation.setOnDismissListener { onPresentationDismissed(routeName, presentation) }
+
+      val flutterEngine = FlutterEngine(context.applicationContext)
+      activeEngines[routeName] = flutterEngine
+
+      flutterEngine.navigationChannel.setInitialRoute(routeName)
+
+      FlutterInjector.instance().flutterLoader().startInitialization(context.applicationContext)
+      val appBundlePath = FlutterInjector.instance().flutterLoader().findAppBundlePath()
+      val entrypoint = DartExecutor.DartEntrypoint(appBundlePath, "externalDisplayMain")
+      flutterEngine.dartExecutor.executeDartEntrypoint(entrypoint)
+      flutterEngine.lifecycleChannel.appIsResumed()
+
+      // Only the delegator installs the platform-views channel handler (Flutter 3.38+).
+      flutterEngine.platformViewsControllerDelegator.attach(
+        presentation.context,
+        flutterEngine.renderer,
+        flutterEngine.dartExecutor
+      )
+
+      FlutterEngineCache.getInstance().put(routeName, flutterEngine)
+
+      val receiveParameters = EventChannel(
+        flutterEngine.dartExecutor.binaryMessenger,
+        "receiveParametersListener"
+      )
+      receiveParameters.setStreamHandler(ExternalViewHandler(this, routeName, flutterEngine))
+      val sendParameters = MethodChannel(
+        flutterEngine.dartExecutor.binaryMessenger,
+        "sendParameters"
+      )
+      sendParameters.setMethodCallHandler(ExternalViewHandler(this, routeName, flutterEngine))
+
+      val flutterView = FlutterView(presentation.context)
+      flutterView.attachToFlutterEngine(flutterEngine)
+      activeFlutterViews[routeName] = flutterView
+
+      val view = FrameLayout(presentation.context)
+      view.addView(
+        flutterView,
+        FrameLayout.LayoutParams(
+          ViewGroup.LayoutParams.MATCH_PARENT,
+          ViewGroup.LayoutParams.MATCH_PARENT
+        )
+      )
+
+      presentation.setContentView(view)
+      presentation.show()
+    } catch (e: Exception) {
+      // For example InvalidDisplayException or BadTokenException from show().
+      Log.e(TAG, "connect failed for route $routeName on display ${display.displayId}", e)
+      tearDownSession(routeName)
+      result.success(false)
+      return
+    }
+    routeResolutions[routeName] = resolution
+    result.success(resolution)
+  }
+
   override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
     when (call.method) {
       "getScreen" -> {
         val screens = displayManager.displays.map { display ->
-          "${display.displayId}. ${display.name} [${display.width}x${display.height}]"
+          val (width, height) = physicalSize(display)
+          "${display.displayId}. ${display.name} [${width}x${height}]"
         }.toList()
         result.success(screens)
       }
 
       "connect" -> {
-        if (displayManager.displays.size > 1) {
-          val routeName = MethodCallArgs.routeName(call.arguments)
-          var displayId = MethodCallArgs.targetScreen(call.arguments)
-          var display: Display? = null
-          if (displayId > 0) {
-            display = displayManager.getDisplay(displayId)
-          }
-          if (display == null && displayManager.displays.isNotEmpty()) {
-            display = displayManager.displays.last()
-            displayId = display.displayId
-          }
-          if (display != null) {
-            // Reconnect / repeated connect must not stack Presentations or leak engines.
-            tearDownSession(routeName)
-
-            val flutterEngine = FlutterEngine(context)
-
-            flutterEngine.navigationChannel.setInitialRoute(routeName)
-
-            FlutterInjector.instance().flutterLoader().startInitialization(context)
-            val appBundlePath = FlutterInjector.instance().flutterLoader().findAppBundlePath()
-            val entrypoint = DartExecutor.DartEntrypoint(appBundlePath, "externalDisplayMain")
-            flutterEngine.dartExecutor.executeDartEntrypoint(entrypoint)
-            flutterEngine.lifecycleChannel.appIsResumed()
-
-            flutterEngine.platformViewsController.attach(
-              context,
-              flutterEngine.renderer,
-              flutterEngine.dartExecutor
-            )
-
-            FlutterEngineCache.getInstance().put(routeName, flutterEngine)
-            activeEngines[routeName] = flutterEngine
-
-            val resolution: Map<String, Double> = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-              mapOf(
-                "width" to display.mode.physicalWidth.toDouble(),
-                "height" to display.mode.physicalHeight.toDouble()
-              )
-            } else {
-              mapOf(
-                "width" to display.width.toDouble(),
-                "height" to display.height.toDouble()
-              )
-            }
-
-            val receiveParameters = EventChannel(
-              flutterEngine.dartExecutor.binaryMessenger,
-              "receiveParametersListener"
-            )
-            receiveParameters.setStreamHandler(ExternalViewHandler(this))
-            val sendParameters = MethodChannel(
-              flutterEngine.dartExecutor.binaryMessenger,
-              "sendParameters"
-            )
-            sendParameters.setMethodCallHandler(ExternalViewHandler(this))
-
-            val flutterView = FlutterView(context)
-            flutterView.attachToFlutterEngine(flutterEngine)
-            activeFlutterViews[routeName] = flutterView
-
-            val view = FrameLayout(context)
-            view.addView(
-              flutterView,
-              FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-              )
-            )
-
-            val presentation = Presentation(context, display)
-            presentation.setContentView(view)
-            presentation.show()
-            activePresentations[routeName] = presentation
-            routeDisplayIds[routeName] = display.displayId
-
-            result.success(resolution)
-            return
-          }
-          result.success(false)
-        } else {
-          result.success(false)
-        }
+        connect(call, result)
       }
 
       "disconnect" -> {
         val routeName = MethodCallArgs.routeName(call.arguments)
+        val existed = hasSession(routeName)
         tearDownSession(routeName)
-        result.success(true)
+        result.success(existed)
       }
 
       "waitingTransferParametersReady" -> {
-        val handler = Handler(Looper.getMainLooper())
-        val sendFail = Runnable {
-          result.success(false)
-          connectReturn = null
-        }
-
-        fun returnResolution() {
-          handler.removeCallbacks(sendFail)
+        if (externalViewEvents.isNotEmpty()) {
           result.success(true)
-          connectReturn = null
-        }
-        connectReturn = ::returnResolution
-
-        if (externalViewEvents != null) {
-          connectReturn?.invoke()
         } else {
+          // Answered once: true when a view subscribes, false after this call's own timeout
+          // or when the plugin detaches first.
+          val handler = Handler(Looper.getMainLooper())
+          lateinit var sendFail: Runnable
+          val token = readyWaiters.add(
+            {
+              handler.removeCallbacks(sendFail)
+              result.success(true)
+            },
+            {
+              handler.removeCallbacks(sendFail)
+              result.success(false)
+            }
+          )
+          sendFail = Runnable {
+            if (readyWaiters.remove(token)) {
+              result.success(false)
+            }
+          }
           handler.postDelayed(sendFail, 10000)
         }
       }
 
       "sendParameters" -> {
-        if (externalViewEvents != null) {
-          externalViewEvents?.success(call.arguments)
-          result.success(true)
-        } else {
-          result.success(false)
+        val sinks = externalViewEvents.values.toList()
+        for (sink in sinks) {
+          sink.success(call.arguments)
         }
+        result.success(sinks.isNotEmpty())
       }
 
       else -> {
@@ -239,38 +358,91 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
 
   override fun onListen(arguments: Any?, eventSink: EventChannel.EventSink) {
     mainViewEvents = eventSink
-    if (displayManager.displays.size > 1) {
+    if (isPlugged()) {
       eventSink.success(true)
     }
-    displayManager.registerDisplayListener(displayListener, Handler(Looper.getMainLooper()))
   }
 
   override fun onCancel(arguments: Any?) {
-    displayManager.unregisterDisplayListener(displayListener)
     mainViewEvents = null
   }
 
   override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
+    displayManager.unregisterDisplayListener(displayListener)
+    mainViewEvents = null
+    // Answer pending waiters now instead of replying to a destroyed engine later.
+    readyWaiters.cancelAll()
     tearDownAllSessions()
     eventChannel.setStreamHandler(null)
     methodChannel.setMethodCallHandler(null)
   }
+
+  /** The external view of [routeName] subscribed; ignored once [engine]'s session has ended. */
+  internal fun onExternalViewListen(
+    routeName: String,
+    engine: FlutterEngine,
+    eventSink: EventChannel.EventSink
+  ) {
+    if (activeEngines[routeName] !== engine) {
+      return
+    }
+    externalViewEvents[routeName] = eventSink
+    readyWaiters.notifyReady()
+  }
+
+  /** The external view of [routeName] unsubscribed; leaves a newer session's sink alone. */
+  internal fun onExternalViewCancel(routeName: String, engine: FlutterEngine) {
+    if (activeEngines[routeName] === engine) {
+      externalViewEvents.remove(routeName)
+    }
+  }
 }
 
-class ExternalViewHandler(plugin: ExternalDisplayPlugin) : MethodCallHandler, StreamHandler {
+class ExternalViewHandler(
+  plugin: ExternalDisplayPlugin,
+  private val routeName: String,
+  private val engine: FlutterEngine
+) : MethodCallHandler, StreamHandler {
   private val externalDisplayPlugin = plugin
 
   override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
     externalDisplayPlugin.mainViewEvents?.success(call.arguments)
-    result.success(true)
+    result.success(externalDisplayPlugin.mainViewEvents != null)
   }
 
   override fun onListen(arguments: Any?, eventSink: EventChannel.EventSink) {
-    externalDisplayPlugin.externalViewEvents = eventSink
-    externalDisplayPlugin.connectReturn?.invoke()
+    externalDisplayPlugin.onExternalViewListen(routeName, engine, eventSink)
   }
 
   override fun onCancel(arguments: Any?) {
-    externalDisplayPlugin.externalViewEvents = null
+    externalDisplayPlugin.onExternalViewCancel(routeName, engine)
+  }
+}
+
+/**
+ * A Presentation that can run a missing onStop(). show() runs onStart(), which registers a
+ * display listener for the process lifetime, before adding the window; dismiss() runs onStop()
+ * only when the window was added and is not destroyed. isShowing() cannot tell: it reads the
+ * decor's visibility, which stays VISIBLE after a show() that threw.
+ */
+private class SessionPresentation(outerContext: Context, display: Display) :
+  Presentation(outerContext, display) {
+  private var started = false
+
+  override fun onStart() {
+    super.onStart()
+    started = true
+  }
+
+  override fun onStop() {
+    started = false
+    super.onStop()
+  }
+
+  /** After dismiss(): runs onStop() if onStart() ran and no onStop() followed. */
+  fun stopIfStarted() {
+    if (started) {
+      onStop()
+    }
   }
 }
