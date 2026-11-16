@@ -1,5 +1,6 @@
 package com.gavinfu.external_display
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.hardware.display.DisplayManager
 import android.os.Build
@@ -55,6 +56,8 @@ internal object DisplayInfo {
         TYPE_PRESENTATION
       }
       // Not cached: the window context adds no window and is released by its finalizer.
+      // The SDK's lint typedef omits the hidden TYPE_PRESENTATION that Presentation itself uses.
+      @SuppressLint("WrongConstant")
       val windowContext = context.createDisplayContext(display).createWindowContext(type, null)
       val touchscreen = windowContext.resources.configuration.touchscreen
       // If the display was removed before the window context attached, Android only logs a
