@@ -406,8 +406,10 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
     /// 尋找主畫面的 FlutterViewController（用來註冊 scene accessory）
     static func findMainFlutterViewController() -> FlutterViewController? {
         for scene in UIApplication.shared.connectedScenes {
-            guard let windowScene = scene as? UIWindowScene else { continue }
-            for window in windowScene.windows {
+            // Only app scenes: the external display scene hosts the external engine's view.
+            guard let windowScene = scene as? UIWindowScene,
+                  windowScene.session.role == .windowApplication else { continue }
+            for window in windowScene.windows where window !== externalWindow {
                 if let flutter = window.rootViewController as? FlutterViewController {
                     return flutter
                 }
