@@ -179,7 +179,12 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
                     ExternalDisplayPlugin.externalWindow?.setFrameOrigin(frame.origin)
                     
                     if fullscreen {
-                        ExternalDisplayPlugin.externalWindow?.toggleFullScreen(nil)
+                        // toggleFullScreen flips the state: calling it on a window that is
+                        // already fullscreen (a repeated createWindow) would leave fullscreen.
+                        if let window = ExternalDisplayPlugin.externalWindow,
+                           !window.styleMask.contains(.fullScreen) {
+                            window.toggleFullScreen(nil)
+                        }
                     } else {
                         ExternalDisplayPlugin.externalWindow?.setContentSize(NSSize(width: windowWidth, height: windowHeight))
                     }
