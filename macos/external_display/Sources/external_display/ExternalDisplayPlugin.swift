@@ -179,7 +179,12 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
                     ExternalDisplayPlugin.externalWindow?.setFrameOrigin(frame.origin)
                     
                     if fullscreen {
-                        ExternalDisplayPlugin.externalWindow?.toggleFullScreen(nil)
+                        // toggleFullScreen flips the state: calling it on a window that is
+                        // already fullscreen (a repeated createWindow) would leave fullscreen.
+                        if let window = ExternalDisplayPlugin.externalWindow,
+                           !window.styleMask.contains(.fullScreen) {
+                            window.toggleFullScreen(nil)
+                        }
                     } else {
                         ExternalDisplayPlugin.externalWindow?.setContentSize(NSSize(width: windowWidth, height: windowHeight))
                     }
@@ -250,7 +255,12 @@ public class ExternalDisplaySendParameters: NSObject, FlutterPlugin {
     public static func register(with registrar: any FlutterPluginRegistrar) {}
 
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-        ExternalDisplayPlugin.mainViewEvents?(call.arguments)
+        // Without a listening main view the message is not delivered: reply false.
+        guard let events = ExternalDisplayPlugin.mainViewEvents else {
+            result(false)
+            return
+        }
+        events(call.arguments)
         result(true)
     }
 }
@@ -285,7 +295,6 @@ public class ExternalViewHandler: NSObject, FlutterStreamHandler {
 
     // 外部顯示頁面 Flutter 的停止監控 swift 傳回的資料
     public func onCancel(withArguments arguments: Any?) -> FlutterError? {
-        ExternalDisplayPlugin.receiveParameters?.setStreamHandler(nil)
         ExternalDisplayPlugin.externalViewEvents = nil
         return nil
     }
