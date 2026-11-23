@@ -179,7 +179,10 @@ final screens = await externalDisplay.getScreen(); // Future<List<String>>
 
 ```dart
 externalDisplay.isPlugging
+externalDisplay.isConnected
 ```
+
+`isPlugging` follows the plug state the platform reports: whether an external display is attached (on macOS, whether the external window is open). `isConnected` belongs to this instance: `true` once its `connect()` succeeded, until a `disconnect()` or `destroyWindow()` that returns `true`, a failed `connect()`, or an unplug reported before `dispose()` clears it. `resolution` is set exactly while `isConnected` is `true`. An unplug that reaches the instance while its `connect()` is still running makes that call return `false` and leaves `isConnected` `false`, even if the platform answered with a size: on iOS the unplug of a session that ended right after connecting can arrive before the result.
 
 ### Get the External Display Resolution
 
@@ -223,6 +226,8 @@ externalDisplay.dispose();
 ```
 
 To remove only one listener, prefer `removeStatusListener` / `removeReceiveParameterListener` instead.
+
+You can also create your own `ExternalDisplay()` instances, for example one per page. Instances share one native subscription and the plug state (`isPlugging`), and disposing one does not affect the others. After the last live instance is disposed, the shared plug state resets: a new instance starts as not plugged until the platform reports the state again (Android and iOS report an attached display right after the new instance starts listening; macOS only reports when a window is created or closed). `resolution` and `isConnected` belong to the instance that called `connect`. Call `connect` and `disconnect` and read `resolution` and `isConnected` on the same instance: a `disconnect` on another instance does not clear them.
 
 ---
 
@@ -279,7 +284,9 @@ final ready = await externalDisplay.waitingTransferParametersReady(
 
 ## External View: Transferring Parameters
 
-On the external display entrypoint, use `TransferParameters` (or the shared `transferParameters` instance). Prefer creating a dedicated instance per external page and disposing it with the page lifecycle.
+Use `transferParameters` / `TransferParameters` only inside the external display entrypoint (`externalDisplayMain`) and the widgets it runs. The main view has no native handler for them: listening there fails with `MissingPluginException` and the main view never receives the external view's messages ([#5](https://github.com/GavinFu7/external_display/issues/5)). On the main view, use `externalDisplay.addReceiveParameterListener` instead.
+
+Keep one instance for the lifetime of the external view's isolate; the global `transferParameters` is the simplest choice. Several instances may be alive at once (they share one native subscription), and disposing one does not affect the others.
 
 ### Import `transfer_parameters.dart`
 
