@@ -134,8 +134,8 @@ Starting with **iOS 27**, custom content on a non-interactive external display i
 
 This plugin handles that for you:
 
-* On iOS 27+, `connect()` registers `UISceneAccessory.externalNonInteractive` on the main `FlutterViewController`, enables it, and attaches a `UIWindow` in `ExternalDisplaySceneDelegate` when the system connects the external scene.
-* On iOS 15–26, the plugin keeps the legacy `UIScreen` + `UIWindow.screen` path.
+* When built with Xcode 27 or newer, on iOS 27+ `connect()` registers `UISceneAccessory.externalNonInteractive` on the main `FlutterViewController`, enables it, and attaches a `UIWindow` in `ExternalDisplaySceneDelegate` when the system connects the external scene.
+* On iOS 15–26, and on every iOS version when built with an older Xcode, the plugin keeps the legacy `UIScreen` + `UIWindow.screen` path.
 * Host apps do **not** need to register `UISceneAccessory` manually.
 
 Dart usage is unchanged:

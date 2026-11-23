@@ -94,28 +94,39 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
         let routeName = (args?["routeName"] as? String) ?? "externalView"
         pendingRouteName = routeName
 
+        #if compiler(>=6.4)
         if #available(iOS 27.0, *) {
             connectWithSceneAccessory(routeName: routeName, result: result)
         } else {
             connectWithLegacyScreen(routeName: routeName, result: result)
         }
+        #else
+        connectWithLegacyScreen(routeName: routeName, result: result)
+        #endif
     }
 
     /// 斷開外接畫面並清理資源
     static func disconnect() -> Bool {
+        #if compiler(>=6.4)
         if #available(iOS 27.0, *) {
             // 停用 scene accessory，讓系統收回外接 scene
             if let registration = sceneAccessoryRegistration as? UISceneAccessoryRegistration {
                 registration.isEnabled = false
             }
         }
+        #endif
         tearDownExternalSession(notifyUnplug: false)
-        pendingConnectResult = nil
+        // Answer a connect still waiting for its scene instead of dropping it.
+        completePendingConnect(false)
         return true
     }
 
     // MARK: - iOS 27+ UISceneAccessory
 
+    // UISceneAccessory ships with the iOS 27 SDK (Xcode 27, Swift 6.4). @available is
+    // checked at run time only, so older compilers must not see this section at all;
+    // they build the UIScreen path below.
+    #if compiler(>=6.4)
     /// iOS 27+：透過 UISceneAccessory 啟用外接非互動 scene
     @available(iOS 27.0, *)
     static func connectWithSceneAccessory(routeName: String, result: @escaping FlutterResult) {
@@ -136,36 +147,26 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
             return
         }
 
-        print("connectWithSceneAccessory")
-
         // 開始新連線前先清掉舊 session
         tearDownExternalSession(notifyUnplug: false)
 
-        print("prepareExternalFlutterContent")
-
+        // A previous connect may still be waiting: answer it before replacing it.
+        completePendingConnect(false)
         pendingConnectResult = result
         prepareExternalFlutterContent(routeName: routeName)
-
-        print("prepareExternalFlutterContent done")
 
         // 啟用 accessory 後，系統會非同步連上外接 scene
         registration.isEnabled = true
 
-        print("registration.isEnabled = true")
-
         // 若 scene 已存在（例如已插著），直接掛載內容
         if let windowScene = findExternalWindowScene() {
-            print("findExternalWindowScene found")
             attachExternalContent(to: windowScene)
             return
         }
 
-        print("findExternalWindowScene done")
-
         // 啟用 accessory 後 scene 連線是非同步的，設定逾時避免永久等待
         pendingConnectTimeout?.cancel()
         let timeout = DispatchWorkItem {
-            print("timeout")
             guard let pending = pendingConnectResult else { return }
             pendingConnectResult = nil
             tearDownExternalSession(notifyUnplug: false)
@@ -276,6 +277,7 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
         }
         return nil
     }
+    #endif
 
     // MARK: - Legacy UIScreen path (iOS < 27)
 
@@ -403,8 +405,10 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
     /// 尋找主畫面的 FlutterViewController（用來註冊 scene accessory）
     static func findMainFlutterViewController() -> FlutterViewController? {
         for scene in UIApplication.shared.connectedScenes {
-            guard let windowScene = scene as? UIWindowScene else { continue }
-            for window in windowScene.windows {
+            // Only app scenes: the external display scene hosts the external engine's view.
+            guard let windowScene = scene as? UIWindowScene,
+                  windowScene.session.role == .windowApplication else { continue }
+            for window in windowScene.windows where window !== externalWindow {
                 if let flutter = window.rootViewController as? FlutterViewController {
                     return flutter
                 }
@@ -437,6 +441,7 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
 
     /// 判斷目前是否有外接螢幕可用／已連線
     static func isExternalDisplayConnected() -> Bool {
+        #if compiler(>=6.4)
         if #available(iOS 27.0, *) {
             if let registration = sceneAccessoryRegistration as? UISceneAccessoryRegistration,
                registration.isAvailable {
@@ -446,6 +451,7 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
                 return true
             }
         }
+        #endif
         return UIScreen.screens.count > 1
     }
 
@@ -484,19 +490,23 @@ public class ExternalDisplaySceneDelegate: UIResponder, UIWindowSceneDelegate {
         willConnectTo session: UISceneSession,
         options connectionOptions: UIScene.ConnectionOptions
     ) {
+        #if compiler(>=6.4)
         guard #available(iOS 27.0, *),
               let windowScene = scene as? UIWindowScene else {
             return
         }
         // 外接 scene 連上：掛載 Flutter 內容
         ExternalDisplayPlugin.handleExternalSceneWillConnect(windowScene)
+        #endif
     }
 
     public func sceneDidDisconnect(_ scene: UIScene) {
+        #if compiler(>=6.4)
         if #available(iOS 27.0, *) {
             // 外接 scene 斷開：清理 session
             ExternalDisplayPlugin.handleExternalSceneDidDisconnect()
         }
+        #endif
         window = nil
     }
 }
@@ -508,7 +518,12 @@ public class ExternalDisplaySendParameters: NSObject, FlutterPlugin {
     public static func register(with registrar: any FlutterPluginRegistrar) {}
 
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-        ExternalDisplayPlugin.mainViewEvents?(call.arguments)
+        // Without a listening main view the message is not delivered: reply false.
+        guard let events = ExternalDisplayPlugin.mainViewEvents else {
+            result(false)
+            return
+        }
+        events(call.arguments)
         result(true)
     }
 }
@@ -532,10 +547,12 @@ public class MainViewHandler: NSObject, FlutterStreamHandler {
         }
 
         // 提早註冊 scene accessory，讓 iOS 27+ 的 isAvailable 能反映插拔狀態
+        #if compiler(>=6.4)
         if #available(iOS 27.0, *),
            let host = ExternalDisplayPlugin.findMainFlutterViewController() {
             ExternalDisplayPlugin.ensureSceneAccessoryRegistered(on: host)
         }
+        #endif
 
         // 若當下已連線，先推一次 true
         if ExternalDisplayPlugin.isExternalDisplayConnected() {
@@ -591,7 +608,6 @@ public class ExternalViewHandler: NSObject, FlutterStreamHandler {
     }
 
     public func onCancel(withArguments arguments: Any?) -> FlutterError? {
-        ExternalDisplayPlugin.receiveParameters?.setStreamHandler(nil)
         ExternalDisplayPlugin.externalViewEvents = nil
         return nil
     }
