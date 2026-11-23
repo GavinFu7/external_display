@@ -1,3 +1,18 @@
+## 0.5.4
+
+### Added
+- `ExternalDisplay.isConnected`: `true` while this instance's `connect()` succeeded and has not been cleared by `disconnect`, `destroyWindow`, a failed `connect`, or an unplug.
+
+### Fixed
+- **Dart**: Multiple `ExternalDisplay` / `TransferParameters` instances share one EventChannel subscription, so a newer instance no longer steals events and disposing one no longer silences the others.
+- **iOS / macOS**: `onCancel` no longer removes the `receiveParametersListener` stream handler, fixing `MissingPluginException` after disposing and recreating `TransferParameters` ([#5](https://github.com/GavinFu7/external_display/issues/5)).
+- **iOS**: A pending `connect` is always answered before `disconnect` or a second `connect` replaces it.
+- **iOS**: Builds with Xcode older than 27 (scene accessory code is gated behind `#if compiler(>=6.4)`).
+- **macOS**: Calling `createWindow(fullscreen: true)` when the window is already fullscreen no longer toggles it out of fullscreen.
+
+### Changed
+- README: documents the shared subscription, `isConnected`, and that `TransferParameters` belongs only in the external display entrypoint.
+
 ## 0.5.3
 
 ### Fixed
